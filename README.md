@@ -13,19 +13,22 @@ workflow uses [PopGLen](https://github.com/zjnolen/PopGLen), our pipeline for GL
 based pop gen analyses, which we extend with additional Snakemake rules. Before
 running that pipeline, we generated GERP scores for each of the focal species'
 reference genomes using several Lepidoptera references and the
-[GenErode pipeline](https://github.com/NBISweden/GenErode). The code for that
-process is available in the [generode](generode) folder, which is a clone of
-GenErode at v0.6.0. Configurations for both workflows are stored in the
+[GenErode pipeline](https://github.com/NBISweden/GenErode), cloning v0.6.0 into
+this working directory. Configurations for both workflows are stored in the
 [config](config) folder here. To run the workflow for each, enter either the
-[angsd](angsd) or [generode](generode) folder and use snakemake with the
+[angsd](angsd) or GenErode (after cloning) folder and use snakemake with the
 `--configfile` option, as shown:
 
 ```bash
-# For the angsd folder:
-snakemake --configfile ../config/config_<species>.yaml
-
-# For the generode folder:
+# For the GenErode workflow to get GERP scores:
+git clone https://github.com/NBISweden/GenErode
+cd GenErode
+git checkout v0.6.0
 snakemake --configfile ../config/generode_<reference_id>.yaml
+
+# For the main workflow for manuscript results:
+cd angsd
+snakemake --configfile ../config/config_<species>.yaml
 ```
 
 ## Manuscript and Figures
