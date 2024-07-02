@@ -7,29 +7,38 @@ as well as the manuscript.
 
 ## Data Analyses
 
-For the data analysis, the analysis is performed primarily using Snakemake, with
-the main workflow in the [angsd](angsd) folder. This is because the main
-workflow uses [PopGLen](https://github.com/zjnolen/PopGLen), our pipeline for GL
-based pop gen analyses, which we extend with additional Snakemake rules. Before
-running that pipeline, we generated GERP scores for each of the focal species'
-reference genomes using several Lepidoptera references and the
-[GenErode pipeline](https://github.com/NBISweden/GenErode), cloning v0.6.0 into
-this working directory. Configurations for both workflows are stored in the
-[config](config) folder here. To run the workflow for each, enter either the
-[angsd](angsd) or GenErode (after cloning) folder and use snakemake with the
-`--configfile` option, as shown:
+For the data analysis, the analyses are performed primarily using Snakemake,
+with the main workflow in the [angsd](angsd) folder. The main workflow uses
+[PopGLen](https://github.com/zjnolen/PopGLen) as its base, and via additional
+Snakefiles, extends it to perform the remaining analyses not included in the
+PopGLen workflow. One of these extended analyses uses GERP scores for each
+reference genome, which we calculated using several Lepidoptera references and
+the [GenErode pipeline](https://github.com/NBISweden/GenErode). As the complete
+manuscript workflow in the angsd folder requires the output of GenErode, the
+GERP scores should be calculated with GenErode first when reproducing the
+analyses.
+
+Configurations for both workflows are stored in the [config](config) folder.
+To run the GenErode workflow, clone it in the main working directory and run it
+for a reference with Snakemake, using the `--configfile` option, as shown:
 
 ```bash
-# For the GenErode workflow to get GERP scores:
 git clone https://github.com/NBISweden/GenErode
 cd GenErode
 git checkout v0.6.0
 snakemake --configfile ../config/generode_<reference_id>.yaml
+```
 
-# For the main workflow for manuscript results:
+Then, to run the remaining analyses for that species, run the workflow in the
+angsd folder using the same `--configfile` option, pointing to the config file
+required for that workflow:
+
+```bash
 cd angsd
 snakemake --configfile ../config/config_<species>.yaml
 ```
+
+These produce the main results files for the manuscript.
 
 ## Manuscript and Figures
 
