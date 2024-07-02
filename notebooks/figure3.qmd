@@ -1,0 +1,283 @@
+---
+title: "Figure 3: Genetic load"
+format:
+  html:
+    code-fold: true
+---
+
+The third figure focuses on genetic load, especially in relation to inbreeding
+in *C. semiargus*. We measure genetic load using two methods, one using highly
+conserved regions determined from conservation scores (GERP), the other using
+genome annotations to infer putative impact classes for each variant.
+
+```{r}
+#| label: load-packages
+
+library(ggplot2) # For general plotting
+library(data.table) # For reading in data tables without reading in all columns
+library(dplyr) # For manipulating dataframes
+library(tidyr) # For splitting data frame columns
+library(stringr) # For subsetting metadata strings
+library(ggtext) # For markdown syntax in ggplot
+library(ggpubr) # For t.test results within plots
+library(scales) # For muted colors
+
+species <- c("picarus", "pargus", "csemiargus")
+genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
+```
+
+## Mutational load from conservation scores
+
+GERP scores give a measure of how conserverved a position is across a lineage,
+and can be used to determine what sites might be under the highest evolutionary
+constraint. For positions where we can estimate GERP scores and infer an
+ancestral state using alignments from many other species, we select the top 1%
+of GERP scores out of all genomic positions, and calculate an estimate of
+relative mutational load from that. In this case, relative mutational load is
+estimated per individual as the derived allele count at each position multiplied
+by its GERP score, summed across the genome and divided by the total derived
+allele count.
+
+Here, it is done per individual by summing the product of derived allele counts
+at each position with their GERP score, then dividing the sum by the total
+derived allele count for an individual.
+
+```{r}
+#| label: fig-gerp
+#| fig-height: 3
+#| fig-width: 7
+
+gerp_all <- c()
+
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+  gerp <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-notrans/analyses/gerp/historical-",
+      s,
+      "-notrans.",
+      g,
+      "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.relative-load-gerp.csv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "population", "time", "depth", "relload", "nsnps")
+  )
+  gerp_boot <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-notrans/analyses/gerp/historical-",
+      s,
+      "-notrans.",
+      g,
+      "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.relative-load-gerp.boots.csv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "population", "time", "depth", "relload")
+  )
+  cis <- gerp_boot %>%
+    group_by(sample) %>%
+    summarise(
+      upper = quantile(relload, 0.975),
+      lower = quantile(relload, 0.025)
+    )
+  gerp <- merge(gerp, cis, by = "sample")
+  gerp$species <- s
+
+  gerp_all <- rbind(gerp_all, gerp)
+}
+
+gerp_all$year <- str_sub(gerp_all$population, -4, -1)
+gerp_all$region <- str_sub(gerp_all$population, 1, -5)
+
+gerp_all$species <- factor(
+  gerp_all$species,
+  levels = species,
+  labels = c("P. icarus", "P. argus", "C. semiargus")
+)
+
+gerp_all$time <- factor(
+  gerp_all$time,
+  levels = c("historical", "modern"),
+  labels = c("Historical", "Modern")
+)
+
+gerp_all$region <- factor(
+  gerp_all$region,
+  levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
+  labels = c(
+    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "N Småland", "Öland"
+  )
+)
+
+ggplot(gerp_all, aes(x = time, y = relload, color = region)) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(
+    aes(x = time, y = relload),
+    inherit.aes = FALSE,
+    outliers = FALSE
+  ) +
+  geom_point(
+    aes(color = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  ylab("Relative Mutational Load<br>(Conserved Regions)") +
+  scale_color_manual(
+    values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
+    name = "Geographic Region"
+  ) +
+  stat_compare_means(method = "t.test", comparisons = list(c("Historical", "Modern"))) +
+  theme_bw() +
+  theme(
+    legend.position.inside = c(0.08, 0.35),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_markdown(size = 9),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+
+
+ggsave("../figures/gerp.png", dpi = 600, create.dir = TRUE, bg = 'white')
+```
+
+## Mutational load from coding regions
+
+VEP annotates the effects alternate variants will have based on the genome
+annotation. Annotations have "high", "moderate", "low", and "modifier" impacts
+that relate roughly to loss of function/frame shift, non-synonymous change,
+synonymous change, and other changes (intergenic/downstream of a gene),
+respectively. We visualize load this way by examining the change in frequency
+of the alternate allele in the time categories, as well as by comparing counts
+of the alternate allele, treating the alternate as putatively deleterious.
+
+```{r}
+#| label: fig-vepload
+
+rxy_all <- c()
+varcounts_all <- c()
+
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+  # Read in Rxy outputs
+  rxy <- read.table(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-notrans/analyses/vep/historical-",
+      s,
+      "-notrans.",
+      g,
+      "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.rxy_nomiss.tsv"
+    ),
+    header = TRUE)
+
+  # Read in variant impact counts
+  varcounts <- read.table(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-notrans/analyses/vep/historical-",
+      s,
+      "-notrans.",
+      g,
+      "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.varimpacts_nomiss.tsv"
+    ),
+    header = TRUE)
+
+  froh <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-notrans/plots/inbreeding/historical-",
+      s,
+      "-notrans.",
+      g,
+      "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.bcftools.ind_froh.tsv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "population", "time", "depth", "Froh")
+  )
+
+  varcounts <- merge(varcounts, froh, by = c("sample", "population", "time", "depth"))
+
+  rxy$species <- s
+  varcounts$species <- s
+  rxy_all <- rbind(rxy_all, rxy)
+  varcounts_all <- rbind(varcounts_all, varcounts)
+}
+
+rxy_all$species <- factor(
+  rxy_all$species,
+  levels = species,
+  labels = c("P. icarus", "P. argus", "C. semiargus")
+)
+
+varcounts_all$year <- str_sub(varcounts_all$population, -4, -1)
+varcounts_all$region <- str_sub(varcounts_all$population, 1, -5)
+
+varcounts_all$species <- factor(
+  varcounts_all$species,
+  levels = species,
+  labels = c("P. icarus", "P. argus", "C. semiargus")
+)
+
+varcounts_all$time <- factor(
+  varcounts_all$time,
+  levels = c("historical", "modern"),
+  labels = c("Historical", "Modern")
+)
+
+varcounts_all$region <- factor(
+  varcounts_all$region,
+  levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
+  labels = c(
+    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "N Småland", "Öland"
+  )
+)
+
+ggplot(rxy_all, aes(x = var.impact, y = rxy.hist.mod)) +
+  facet_grid(cols = vars(species)) +
+  # geom_boxplot() +
+  # geom_boxplot() +
+  geom_hline(yintercept = 1) +
+  # ylim(c(0.4,1.6)) +
+  stat_summary(fun.data = median_hilow, geom = "pointrange",
+    position = position_dodge(width = 0.8))
+
+
+
+ggplot(varcounts_all, aes(x = time, y = (mod_hom/alts))) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_point(
+    aes(color = Froh, group = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  # scale_color_manual(
+  #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
+  #   name = "Geographic Region"
+  # ) +
+  ylab("Homozygous High impact alleles<br>per 1000 alleles (Realized Load)") +
+  stat_compare_means(method = "t.test", comparison = list(c("Historical", "Modern"))) +
+  theme_bw() +
+  theme(
+    legend.position.inside = c(0.08, 0.35),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_markdown(size = 9),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+
+ggplot(varcounts_all, aes(x = nsites, y = low, color = species)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
