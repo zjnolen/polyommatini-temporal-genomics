@@ -39,7 +39,7 @@ rule bcftools_roh_plot:
     input:
         roh="results/datasets/{dataset}/analyses/roh/bcftools/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.regs.roh",
         inds="results/datasets/{dataset}/poplists/{dataset}_all.indiv.list",
-        autos=angsd.get_auto_sum
+        autos=angsd.get_auto_sum,
     output:
         barplot=report(
             "results/datasets/{dataset}/plots/inbreeding/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.bcftools.froh_bins.svg",
@@ -248,8 +248,6 @@ rule bcftools_roh_plot:
 #             {params.extra} {input.alignments} |
 #         bcftools call -m --variants-only --skip-variants indels -f GQ,GP -o {output.bcf}
 #         """
-
-
 # rule bcf_filter:
 #     """
 #     Filter called genotypes to exclude genotypes with < 30 genotype quality and

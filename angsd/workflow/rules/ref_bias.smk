@@ -12,9 +12,11 @@ rule angsd_doIBS_refmajor:
         ref="results/ref/{ref}/{ref}.fa",
         reffai="results/ref/{ref}/{ref}.fa.fai",
     output:
-        ibs=temp("results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_rmtrans{rmtrans}.ibs.gz"),
+        ibs=temp(
+            "results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_rmtrans{rmtrans}.ibs.gz"
+        ),
         arg="results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_rmtrans{rmtrans}.arg",
-        stats="results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_rmtrans{rmtrans}.refibs.tsv"
+        stats="results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_rmtrans{rmtrans}.refibs.tsv",
     wildcard_constraints:
         population="|".join(angsd.samples.index),
     log:
@@ -60,9 +62,11 @@ rule angsd_doIBS_refmajor_sites:
         ref="results/ref/{ref}/{ref}.fa",
         reffai="results/ref/{ref}/{ref}.fa.fai",
     output:
-        ibs=temp("results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_{sites}-filts_rmtrans{rmtrans}.ibs.gz"),
+        ibs=temp(
+            "results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_{sites}-filts_rmtrans{rmtrans}.ibs.gz"
+        ),
         arg="results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_{sites}-filts_rmtrans{rmtrans}.arg",
-        stats="results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_{sites}-filts_rmtrans{rmtrans}.refibs.tsv"
+        stats="results/datasets/{dataset}/qc/ibs_refbias/{dataset}.{ref}_{population}{dp}_{sites}-filts_rmtrans{rmtrans}.refibs.tsv",
     wildcard_constraints:
         population="|".join(angsd.samples.index),
     log:

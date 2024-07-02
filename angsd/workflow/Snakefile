@@ -6,7 +6,7 @@ min_version("7.32.0")
 
 module angsd:
     snakefile:
-        "https://raw.githubusercontent.com/zjnolen/angsd-snakemake-pipeline/8dce26af52cc535cc578949111d6c29498b1b689/workflow/Snakefile"
+        "https://raw.githubusercontent.com/zjnolen/PopGLen/921b5fd11f6e5e8213f4e11299c9cce6729585a1/workflow/Snakefile"
     config:
         config
 
@@ -35,11 +35,6 @@ wildcard_constraints:
 
 
 all_outputs = []
-
-if config["snpeff"]:
-    all_outputs.append(
-        "results/datasets/{dataset}/analyses/snpeff/{dataset}.{ref}_all_{sites}-filts.filtered-biallelic.{trans}.fmiss{miss}.rxy_time.tsv"
-    )
 
 if config["vep"]:
     all_outputs.append(

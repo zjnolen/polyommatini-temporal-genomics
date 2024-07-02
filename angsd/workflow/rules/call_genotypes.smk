@@ -232,9 +232,6 @@ rule bcftools_filter_nomiss:
 #         "v3.7.0/bio/multiqc"
 
 
-
-
-
 # rule bcftools_merge_pops:
 #     """
 #     Generate per population BCF from per sample BCFs. Sites are filtered to
@@ -275,21 +272,30 @@ rule bcftools_filter_nomiss:
 #         bcftools stats {output.bcf} > {output.stats}
 #         """
 
+
 def bcfs(wildcards):
     dp = wildcards.dp
-    samples=[sample for sample in angsd.samples.index.tolist() if sample not in config["calling_drop"]]
+    samples = [
+        sample
+        for sample in angsd.samples.index.tolist()
+        if sample not in config["calling_drop"]
+    ]
     return expand(
         "results/datasets/{{dataset}}/bcfs/{{dataset}}.{{ref}}_{population}{{dp}}_{{sites}}-filts.filtered_mindp{{mindp}}.nomiss.bcf",
-        population=samples
+        population=samples,
     )
 
 
 def bcf_stats(wildcards):
     dp = wildcards.dp
-    samples=[sample for sample in angsd.samples.index.tolist() if sample not in config["calling_drop"]]
+    samples = [
+        sample
+        for sample in angsd.samples.index.tolist()
+        if sample not in config["calling_drop"]
+    ]
     return expand(
         "results/datasets/{{dataset}}/bcfs/{{dataset}}.{{ref}}_{population}{{dp}}_{{sites}}-filts.filtered_mindp{{mindp}}.nomiss.bcf.stats",
-        population=samples
+        population=samples,
     )
 
 
@@ -298,7 +304,7 @@ rule multiqc_bcf_filt_nomiss:
     Generate multiqc with filtered BCF stats for each individual.
     """
     input:
-        bcf_stats
+        bcf_stats,
     output:
         "results/datasets/{dataset}/qc/bcfs/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}.nomiss.bcf.multiqc.html",
     params:
@@ -315,7 +321,7 @@ rule bcftools_merge_all:
     dataset. Sites are also filtered by a missing data threshold.
     """
     input:
-        bcfs
+        bcfs,
     output:
         bcf="results/datasets/{dataset}/bcfs/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.trans.fmiss{miss}.bcf",
         idx="results/datasets/{dataset}/bcfs/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.trans.fmiss{miss}.bcf.csi",
@@ -495,20 +501,25 @@ rule bcftools_roh_indiv_bcf:
         awk '$1=="RG"' {output.roh} > {output.regs}
         """
 
+
 def rohs(wildcards):
     dp = wildcards.dp
-    samples=[sample for sample in angsd.samples.index.tolist() if sample not in config["calling_drop"]]
+    samples = [
+        sample
+        for sample in angsd.samples.index.tolist()
+        if sample not in config["calling_drop"]
+    ]
     return expand(
         "results/datasets/{{dataset}}/analyses/roh/bcftools/{{dataset}}.{{ref}}_{sample}{{dp}}_{{sites}}-filts.filtered.notrans.regs.roh",
-        sample=samples
+        sample=samples,
     )
 
 
 rule merge_bcftools_roh_indiv:
     input:
-        rohs
+        rohs,
     output:
-        "results/datasets/{dataset}/analyses/roh/bcftools/{dataset}.{ref}_all{dp}_{sites}-filts.filtered.notrans.regs.roh"
+        "results/datasets/{dataset}/analyses/roh/bcftools/{dataset}.{ref}_all{dp}_{sites}-filts.filtered.notrans.regs.roh",
     conda:
         "../envs/shell.yaml"
     shell:
@@ -516,11 +527,12 @@ rule merge_bcftools_roh_indiv:
         cat {input} > {output}
         """
 
+
 rule bcftools_roh_indiv_plot:
     input:
         roh="results/datasets/{dataset}/analyses/roh/bcftools/{dataset}.{ref}_all{dp}_{sites}-filts.filtered.notrans.regs.roh",
         inds="results/datasets/{dataset}/poplists/{dataset}_all.indiv.list",
-        autos=angsd.get_auto_sum
+        autos=angsd.get_auto_sum,
     output:
         barplot=report(
             "results/datasets/{dataset}/plots/inbreeding/{dataset}.{ref}_all{dp}_{sites}-filts.filtered.notrans.bcftools.froh_bins.svg",

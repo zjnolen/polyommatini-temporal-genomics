@@ -1,8 +1,8 @@
 rule prep_dtol_gff:
     input:
-        config["gff"]
+        config["gff"],
     output:
-        "results/ref/{ref}/{ref}.gff.gz"
+        "results/ref/{ref}/{ref}.gff.gz",
     conda:
         "../envs/vep.yaml"
     shell:
@@ -24,7 +24,7 @@ rule vep_annotate_vars:
     conda:
         "../envs/vep.yaml"
     resources:
-        runtime="4d"
+        runtime="4d",
     shell:
         """
         bcftools view -Ov {input.bcf} | \
@@ -37,7 +37,7 @@ rule vep_picked_effect:
     input:
         vep="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.notrans.fmiss{miss}.vep-annotated.txt",
     output:
-        csv="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.notrans.fmiss{miss}.vep-effects.txt"
+        csv="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.notrans.fmiss{miss}.vep-effects.txt",
     conda:
         "../envs/shell.yaml"
     shell:
@@ -61,7 +61,7 @@ rule calc_vep_load:
         varcounts="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.notrans.fmiss{miss}.varimpacts.tsv",
         rxy_nomiss="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.notrans.fmiss{miss}.rxy_nomiss.tsv",
         varcounts_nomiss="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.notrans.fmiss{miss}.varimpacts_nomiss.tsv",
-    threads: lambda w, attempt: 2*attempt
+    threads: lambda w, attempt: 2 * attempt
     conda:
         "../envs/r.yaml"
     script:
