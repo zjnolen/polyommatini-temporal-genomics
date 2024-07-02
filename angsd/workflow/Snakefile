@@ -1,0 +1,74 @@
+from snakemake.utils import min_version
+
+
+min_version("7.32.0")
+
+
+module angsd:
+    snakefile:
+        "https://raw.githubusercontent.com/zjnolen/angsd-snakemake-pipeline/8dce26af52cc535cc578949111d6c29498b1b689/workflow/Snakefile"
+    config:
+        config
+
+
+use rule * from angsd as angsd_*
+
+
+include: "rules/ref_bias.smk"
+include: "rules/call_genotypes.smk"
+include: "rules/bcftools_roh.smk"
+include: "rules/gerp.smk"
+include: "rules/vep.smk"
+
+
+wildcard_constraints:
+    ref=config["reference"]["name"],
+    dp=".{0}|.dp[1-9][0-9]*",
+    population="|".join(
+        ["all"]
+        + ["all_excl_pca-admix"]
+        + [i for i in angsd.samples.index.tolist()]
+        + [i for i in angsd.samples.population.values.tolist()]
+        + [i for i in angsd.samples.depth.values.tolist()]
+    ),
+    mindp="[1-9][0-9]*",
+
+
+all_outputs = []
+
+if config["snpeff"]:
+    all_outputs.append(
+        "results/datasets/{dataset}/analyses/snpeff/{dataset}.{ref}_all_{sites}-filts.filtered-biallelic.{trans}.fmiss{miss}.rxy_time.tsv"
+    )
+
+if config["vep"]:
+    all_outputs.append(
+        "results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.notrans.fmiss{miss}.rxy.tsv"
+    )
+
+if config["bcftools_roh"]:
+    all_outputs.append(
+        "results/datasets/{dataset}/plots/inbreeding/{dataset}.{ref}_all_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.bcftools.froh_bins.svg"
+    )
+
+if config["gerp_rel_load"]:
+    all_outputs.append(
+        "results/datasets/{dataset}/analyses/gerp/{dataset}.{ref}_all_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.relative-load-gerp.csv"
+    )
+
+
+rule all:
+    input:
+        rules.angsd_all.input,
+        expand(
+            all_outputs,
+            sample=angsd.samples.index,
+            ref=config["reference"]["name"],
+            dataset=config["dataset"],
+            sites=angsd.filters,
+            trans=config["bcf_trans"],
+            miss=config["bcf_missing"],
+            dp=["", f".dp{config['bcf_subsample_dp']}"],
+            mindp=["5", "6"],
+        ),
+    default_target: True
