@@ -1,0 +1,13 @@
+project:
+  type: manuscript
+
+execute:
+  freeze: auto
+
+toc: false
+number-sections: true
+
+format:
+  html: default
+  docx: default
+  pdf: default

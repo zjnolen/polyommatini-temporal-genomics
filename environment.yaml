@@ -1,0 +1,20 @@
+name: r-plotting
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - r-base =4.3
+  - radian
+  - r-httpgd
+  - r-languageserver
+  - r-ggplot2
+  - r-ggpubr
+  - r-ggtext
+  - r-dplyr
+  - r-geosphere
+  - r-svglite
+  - r-Hmisc
+  - r-ggimage
+  - r-ggh4x
