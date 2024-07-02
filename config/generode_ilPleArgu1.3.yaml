@@ -1,0 +1,13 @@
+# Configuration for calculating GERP scores from outgroups aligned to the target
+# reference. This is done per reference genome, as the ancestral states and GERP
+# scores are determined in reference to the given genome. For each reference,
+# the reference path is supplied, as well as a path to a folder containing the
+# outgroup genomes. There is a folder per reference, containing all utilized
+# references except the target. This just generates ancestral states and GERP
+# scores for our reference genome, we then use our own scripts to use these to
+# calculate relative load, but the method is similar to what GenErode would do.
+
+ref_path: "../resources/ref/GCA_905404155.3_ilPleArgu1.3_genomic.fna"
+gerp: True
+gerp_ref_path: "../resources/outgroup_genomes/ilPleArgu1.3"
+tree: "../resources/trees/4776_Wiemers_2020.nwk"
