@@ -1,0 +1,213 @@
+---
+title: "Figure 4"
+format:
+  html:
+    code-fold: true
+---
+
+The fourth figure looks at several blue species and tries to gauge their level
+of genetic diversity loss in the past century. Many of the species only have a
+single sample per time point, so we include a comparison of all possible sample
+pair comparisons in the focal species to see if we get the correct
+
+```{r}
+#| label: load-packages
+
+library(data.table)
+library(stringr)
+library(ggplot2)
+
+main_species_f <- c("picarus-notrans", "pargus-notrans", "csemiargus-notrans")
+main_species <- c("picarus", "pargus", "csemiargus")
+main_genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
+
+species <- c(
+  "aagestis", "aoptilete", "cargiolus", "cminimus", "palcon",
+  "pamandus", "pargyrognomon", "parion", "sorion"
+)
+genomes <- c(
+  "ilAriAges2.1", "ilCyaSemi1.1", "ilCelArgi3.2", "ilPolIcar1.1",
+  "ilPheArio1.1", "ilPolIcar1.1", "ilPleArgu1.3", "ilPheArio1.1",
+  "ilGlaAlex1.1"
+)
+```
+
+## Heterozygosity change per year
+
+One of the metrics suggested for utilization in Sweden is the per year change in
+heterozygosity. While the warning categories are suggested only for significant
+differences, which we can't really check with single samples per time period, we
+use this same calculation as it is a useful visualization.
+
+```{r}
+#| label: main-species-het
+
+# As the main species have specific considerations (i.e. multiple sampling
+# areas), they'll be processed separately first.
+
+relhet_all <- c()
+
+for (i in seq_along(c(main_species, species))) {
+  s <- c(main_species, species)[i]
+  f <- c(main_species_f, species)[i]
+  g <- c(main_genomes, genomes)[i]
+  hz <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      f,
+      "/analyses/heterozygosity/historical-",
+      f,
+      ".",
+      g,
+      "_all_allsites-filts_heterozygosity.tsv"
+    ),
+    header = TRUE,
+    sep = "\t"
+  )
+  samples <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      f,
+      "/poplists/historical-",
+      f,
+      "_all.indiv.list"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "population", "time", "depth")
+  )
+  hz <- merge(hz, samples, by = "sample")
+
+  if (s %in% species) {
+    hz$year <- str_sub(hz$population, 1, 4)
+    hz$region <- "one_region"
+  } else {
+    hz$year <- str_sub(hz$population, -4, -1)
+    hz$region <- str_sub(hz$population, 1, -5)
+    # Lump SW Skåne with W Skåne and SE Skåne with E Skåne
+    hz[hz$region == "SWSkane", ]$region <- "WSkane"
+    hz[hz$region == "SESkane", ]$region <- "ESkane"
+  }
+
+  regions <- unique(hz$region)
+
+  relhet <- c()
+
+  for (r in regions) {
+    historical <- hz[hz$region == r & hz$year < 1995, ]$sample
+    modern <- hz[hz$region == r & hz$year > 1995, ]$sample
+    combos <- expand.grid(historical, modern)
+    colnames(combos) <- c("historical", "modern")
+    combos <- merge(
+      combos,
+      hz[, c("sample", "heterozygous_per_1000bp", "year")],
+      by.x = "historical", by.y = "sample"
+    )
+    colnames(combos) <- c("historical", "modern", "histhz", "histyear")
+    combos <- merge(
+      combos,
+      hz[, c("sample", "heterozygous_per_1000bp", "year")],
+      by.x = "modern", by.y = "sample"
+    )
+    colnames(combos) <- c(
+      "historical", "modern", "histhz", "histyear", "modhz",
+      "modyear"
+    )
+    combos$histyear <- as.numeric(combos$histyear)
+    combos$modyear <- as.numeric(combos$modyear)
+    combos$het_retained <- (combos$modhz / combos$histhz)
+    combos$het_retained_peryear <- exp(
+      log(combos$het_retained) / (combos$modyear - combos$histyear)
+    )
+    combos$rel_delta_het <- combos$het_retained - 1
+    combos$rel_delta_het_peryear <- combos$het_retained_peryear - 1
+    combos$pred_het_ret_100 <- (combos$het_retained_peryear^100) * 100
+    if (s %in% c(
+      "aagestis", "cminimus", "palcon", "pamandus", "pargyrognomon"
+    )) {
+      r <- "WSkane"
+    } else if (s == "aoptilete") {
+      r <- "NSmaland"
+    } else if (s == "cargiolus") {
+      r <- "Oland"
+    }
+    combos$region <- r
+    relhet <- rbind(relhet, combos)
+  }
+
+  relhet$species <- s
+  relhet_all <- rbind(relhet_all, relhet)
+}
+
+# Now, we drop Phengaris arion, as unfortunately our modern sample has too low
+# sequencing depth (~0.2X, it was also a museum sample).
+relhet_all <- relhet_all[relhet_all$species != "parion", ]
+```
+
+```{r}
+species_names <- c(
+  "Aricia agestis", "Agriades optilete*",
+  "Celastrina argiolus", "Cupido minimus*", "Cyaniris semiargus",
+  "Phengaris alcon*", "Polyommatus amandus", "Plebejus argus",
+  "Plebejus argyrognomon*", "Polyommatus icarus", "Scolitantides orion*"
+)
+
+cons_status <- c(
+  "(LC)", "(LC)", "(LC)", "(NT)", "(LC)", "(EN)", "(LC)", "(LC)",
+  "(CR)", "(LC)", "(EN)"
+)
+
+full_name <- paste0(species_names, " ", cons_status)
+
+spec_cons <- data.frame(t(rbind(species_names, cons_status, full_name)))
+spec_cons$cons_status <- factor(spec_cons$cons_status,
+  levels = c("(LC)", "(NT)", "(EN)", "(CR)")
+)
+
+relhet_all$species <- factor(relhet_all$species,
+  labels = spec_cons$full_name
+)
+relhet_all$species <- factor(relhet_all$species,
+  levels = spec_cons[order(
+    spec_cons$cons_status,
+    spec_cons$species_name
+  ), ]$full_name
+)
+
+rects <- data.frame(
+  xmin = -Inf, xmax = Inf,
+  ymin = c(0, 75, 95),
+  ymax = c(75, 95, Inf),
+  fill = factor(c("alarm", "warning", "acceptable"),
+    levels = c("alarm", "warning", "acceptable")
+  )
+)
+
+ggplot(
+  relhet_all,
+  aes(x = species, y = pred_het_ret_100, color = region)
+) +
+  # geom_rect(
+  #   data = rects,
+  #   aes(ymin = ymin, ymax = ymax, xmin = xmin, xmax = xmax, fill = fill),
+  #   inherit.aes = FALSE, alpha = 0.2
+  # ) +
+  scale_fill_manual(values = c("red", "yellow", "green")) +
+  scale_color_manual(
+    values = c("#658399", "#8A2A3B", "#fecd03", "black", "#244F6E")
+  ) +
+  geom_hline(yintercept = 75, linetype = "dashed") +
+  geom_hline(yintercept = 95, linetype = "dashed") +
+  stat_summary(
+    fun.data = "median_hilow", geom = "pointrange",
+    position = position_dodge(width = 0.5), size = 0.8, linewidth = 1
+  ) +
+  ylab("Percent retention of heterozygosity over 100 years") +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 150)) +
+  scale_x_discrete(labels = ~ str_wrap(.x, 9)) +
+  theme_classic() +
+  theme(
+    axis.text.x = element_text(face = "italic"),
+    axis.title.x = element_blank() # ,    legend.position = "none"
+  )
+```
