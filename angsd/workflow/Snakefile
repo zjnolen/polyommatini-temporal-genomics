@@ -6,7 +6,7 @@ min_version("7.32.0")
 
 module angsd:
     snakefile:
-        "https://raw.githubusercontent.com/zjnolen/PopGLen/921b5fd11f6e5e8213f4e11299c9cce6729585a1/workflow/Snakefile"
+        "https://raw.githubusercontent.com/zjnolen/PopGLen/70b372feccfc5262f6cf1e6ca0dbdd9f8ede2768/workflow/Snakefile"
     config:
         config
 

@@ -89,7 +89,7 @@ analyses:
 
 #==================== Downsampling Configuration ======================#
 
-subsample_dp: 4
+subsample_dp: [2, 3, 4]
 
 subsample_by: "sitefilt"
 redo_depth_filts: false
@@ -98,8 +98,8 @@ drop_samples: []
 subsample_analyses:
   estimate_ld: false
   ld_decay: false
-  pca_pcangsd: true
-  admix_ngsadmix: true
+  pca_pcangsd: false
+  admix_ngsadmix: false
   relatedness: 
     ngsrelate: false
     ibsrelate_ibs: false
@@ -108,10 +108,10 @@ subsample_analyses:
   1dsfs_boot: false
   2dsfs: false
   2dsfs_boot: false
-  thetas_angsd: true
+  thetas_angsd: false
   heterozygosity_angsd: true
   fst_angsd:
-    populations: true
+    populations: false
     individuals: false
   inbreeding_ngsf-hmm: false
   ibs_matrix: false

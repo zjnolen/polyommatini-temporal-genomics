@@ -88,7 +88,7 @@ analyses:
 
 #==================== Downsampling Configuration ======================#
 
-subsample_dp: 4
+subsample_dp: [2, 3, 4]
 
 subsample_by: "sitefilt"
 redo_depth_filts: false
