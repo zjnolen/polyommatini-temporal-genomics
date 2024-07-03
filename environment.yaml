@@ -18,3 +18,4 @@ dependencies:
   - r-Hmisc
   - r-ggimage
   - r-ggh4x
+  - r-patchwork
