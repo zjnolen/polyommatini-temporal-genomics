@@ -11,6 +11,9 @@ calling_drop: ["MZLULEP4538", "MZLULEP3259", "MZLULEP3133", "MZLULEP3668", "MZLU
 gerp_rel_load: true
 gerp_scores: "../GenErode/results/gerp/GCA_937595015.1_ilPolIcar1.1_genomic.genome.ancestral.rates.gz"
 lower_gerp_thresh: 0.1147
+downsample_thetas: false
+downsample_sizes: [4]
+downsample_reps: [100]
 
 #=====================Dataset Configuration============================#
 

@@ -12,6 +12,9 @@ gerp_rel_load: true
 # Get this path after running GenErode for the reference genome
 gerp_scores: "../GenErode/results/gerp/GCA_905187585.1_ilCyaSemi1.1_genomic.genome.ancestral.rates.gz"
 lower_gerp_thresh: 0.12232
+downsample_thetas: false
+downsample_sizes: [4]
+downsample_reps: [100]
 
 #=====================Dataset Configuration============================#
 

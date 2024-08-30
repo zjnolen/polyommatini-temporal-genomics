@@ -19,6 +19,7 @@ include: "rules/call_genotypes.smk"
 include: "rules/bcftools_roh.smk"
 include: "rules/gerp.smk"
 include: "rules/vep.smk"
+include: "rules/theta_downsampling.smk"
 
 
 wildcard_constraints:
@@ -63,6 +64,16 @@ if config["gerp_rel_load"]:
             zip,
             dp=["", ".dp5"],
             mindp=[6, 4],
+        )
+    )
+
+if config["downsample_thetas"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_all{dp}.downsampled_{{sites}}-filts.thetaMean.{win}_{step}.tsv",
+            dp=[""],
+            win=config["params"]["thetas"]["win_size"],
+            step=config["params"]["thetas"]["win_step"],
         )
     )
 
