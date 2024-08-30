@@ -19,3 +19,4 @@ dependencies:
   - r-ggimage
   - r-ggh4x
   - r-patchwork
+  - r-rsvg

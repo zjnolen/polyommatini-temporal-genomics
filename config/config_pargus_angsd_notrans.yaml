@@ -4,7 +4,6 @@ recrate: "3.03e-8"
 gff: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/museum-manuscript/resources/gffs/Plebejus_argus-GCA_905404155.1-2021_11-genes.gff3.gz"
 bcf_trans: "notrans"
 bcf_missing: "0.2"
-bcf_subsample_dp: "5"
 bcftools_roh: true
 min_phred_roh: 30
 vep: true

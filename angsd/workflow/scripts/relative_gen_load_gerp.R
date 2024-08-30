@@ -48,6 +48,21 @@ df <- df %>% mutate_at(
     as.numeric
 )
 
+# make data frames of historical and modern genotypes only and get a list of
+# sites with 80% completeness in both
+histgt <- df[, which(
+  names(df) %in% samples$sample[sampmeta$time == "historical"]
+)]
+modgt <- df[, which(names(df) %in% samples$sample[sampmeta$time == "modern"])]
+impacts <- df$impact
+
+comp80both <- (
+  rowSums(!is.na(histgt)) >= floor(ncol(histgt) * 0.8) &
+  rowSums(!is.na(modgt)) >= floor(ncol(modgt) * 0.8)
+)
+
+df <- df[comp80both, ]
+
 # In situations where the alternate == the ancestral, swap the genotypes (i.e.
 # 0/0 becomes 1/1 and vice versa). This converts the 0, 1, 2 genotypes to
 # derived allele counts.
@@ -66,16 +81,19 @@ for (s in samples$sample) {
     # derived alleles. Excludes positions per samples where sample is missing
     # data
     sum_corr_gerp <- sum(samdf[, 1] * samdf$gerp)
+    sum_corr_gerp_hom <- sum(((samdf[, 1] == 2) * 2) * samdf$gerp)
     sum_der <- sum(samdf[, 1])
     load <- sum_corr_gerp / sum_der
+    homload <- sum_corr_gerp_hom / sum_der
     nsnps <- nrow(samdf)
-    row <- c(s, sum_corr_gerp, sum_der, load, nsnps)
+    row <- c(s, sum_corr_gerp, sum_corr_gerp_hom, sum_der, load, homload, nsnps)
     relload <- rbind(relload, row)
 }
 
 # Add in the sample metadata to get a useful table for plotting
 colnames(relload) <- c(
-    "sample", "sum_corrected_gerp", "sum_derived", "relload", "nsnps"
+    "sample", "sum_corrected_gerp", "sum_corr_gerp_hom", "sum_derived",
+    "relload", "relload_hom", "nsnps"
 )
 relload <- merge(samples, relload, by = "sample")
 
@@ -90,7 +108,7 @@ write.table(relload,
 # quality (i.e. number of usable SNPs) between the samples.
 
 nboot <- 300 # how many bootstraps to perform
-bootsize <- as.integer(nrow(df) / 3) # how many SNPs to sample per bootstrap
+bootsize <- 1000 # how many SNPs to sample per bootstrap
 bootload <- c()
 
 for (s in samples$sample) {
@@ -99,18 +117,20 @@ for (s in samples$sample) {
         samdf <- samdf[complete.cases(samdf), ]
         samdf <- samdf[sample(nrow(samdf), bootsize), ]
         sum_corr_gerp <- sum(samdf[, 1] * samdf$gerp)
+        sum_corr_gerp_hom <- sum(((samdf[, 1] == 2) * 2) * samdf$gerp) 
         sum_der <- sum(samdf[, 1])
         load <- sum_corr_gerp / sum_der
+        homload <- sum_corr_gerp_hom / sum_der
         nsnps <- nrow(samdf)
-        row <- c(s, b, sum_corr_gerp, sum_der, load, nsnps)
+        row <- c(s, b, sum_corr_gerp, sum_corr_gerp_hom, sum_der, load, homload, nsnps)
         bootload <- rbind(bootload, row)
     }
 }
 
 # Add in the sample metadata to get a useful table for plotting
 colnames(bootload) <- c(
-    "sample", "bootstrap", "sum_corrected_gerp",
-    "sum_derived", "relload", "nsnps"
+    "sample", "bootstrap", "sum_corrected_gerp", "sum_corr_gerp_hom",
+    "sum_derived", "relload", "relload_hom", "nsnps"
 )
 bootload <- merge(samples, bootload, by = "sample")
 
@@ -134,16 +154,19 @@ for (s in samples$sample) {
     # derived alleles. Excludes positions per samples where sample is missing
     # data
     sum_corr_gerp <- sum(samdf[, 1] * samdf$gerp)
+    sum_corr_gerp_hom <- sum(((samdf[, 1] == 2) * 2) * samdf$gerp)
     sum_der <- sum(samdf[, 1])
     load <- sum_corr_gerp / sum_der
+    homload <- sum_corr_gerp_hom / sum_der
     nsnps <- nrow(samdf)
-    row <- c(s, sum_corr_gerp, sum_der, load, nsnps)
+    row <- c(s, sum_corr_gerp, sum_corr_gerp_hom, sum_der, load, homload, nsnps)
     relload <- rbind(relload, row)
 }
 
 # Add in the sample metadata to get a useful table for plotting
 colnames(relload) <- c(
-    "sample", "sum_corrected_gerp", "sum_derived", "relload", "nsnps"
+    "sample", "sum_corrected_gerp", "sum_corr_gerp_hom", "sum_derived",
+    "relload", "relload_hom", "nsnps"
 )
 relload <- merge(samples, relload, by = "sample")
 

@@ -4,7 +4,6 @@ recrate: "2.76e-8"
 gff: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/museum-manuscript/resources/gffs/Cyaniris_semiargus-GCA_905187585.1-2021_12-genes.gff3.gz"
 bcf_trans: "notrans"
 bcf_missing: "0.2"
-bcf_subsample_dp: "5"
 calling_drop: ["MZLU152765"]
 bcftools_roh: true
 min_phred_roh: 30
