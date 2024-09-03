@@ -68,8 +68,12 @@ rule downsample_thetas:
         mapQ=config["mapQ"],
         baseQ=config["baseQ"],
         trans=angsd.get_trans,
-        minind=angsd.get_minind,
+        minind=lambda w: int(
+            int(w.samplesize) * config["params"]["angsd"]["minind_dataset"]
+        ),
         mininddp=config["params"]["angsd"]["mindepthind"],
+        fold=config["params"]["realsfs"]["fold"],
+        pre=lambda w: f"{w.dataset}.{w.ref}_{w.population}{w.dp}.N{w.samplesize}-rep{w.rep}_{w.sites}-filts",
         out=lambda w, output: os.path.splitext(output.thetas)[0],
     threads: lambda w, attempt: attempt * 2
     resources:
@@ -78,19 +82,20 @@ rule downsample_thetas:
         """
         (angsd -doSaf 1 -bam {input.sublist} -GL {params.gl_model} \
             -ref {input.ref} -nThreads {threads} {params.extra} \
-            {params.minind} -minMapQ {params.mapQ} -minQ {params.baseQ} \
-            -sites {input.sites} -anc {input.ref} -noTrans {params.trans} \
-            -rf <(cut -f1 {input.sites} | sort | uniq | sed -e 's/$/:/') \
-            -{params.extra_saf} -setMinDepthInd {params.mininddp} \
-            -out {resources.tmpdir}/saf
+            -minInd {params.minind} -minMapQ {params.mapQ} \
+            -minQ {params.baseQ} -sites {input.sites} -anc {input.ref} \
+            -noTrans {params.trans} \
+            -rf <(cut -f1 {input.sites} | uniq | sed -e 's/$/:/') \
+            {params.extra_saf} -setMinDepthInd {params.mininddp} \
+            -out {resources.tmpdir}/{params.pre}
 
-        realSFS {resources.tmpdir}/saf.saf.idx -fold {params.fold} \
+        realSFS {resources.tmpdir}/{params.pre}.saf.idx -fold {params.fold} \
             -P {threads} > {output.sfs}
 
-        realSFS saf2theta {resources.tmpdir}/saf.saf.idx -sfs {output.sfs} \
-            -fold {params.fold} -outname {resources.tmpdir}/thetas
+        realSFS saf2theta {resources.tmpdir}/{params.pre}.saf.idx -sfs {output.sfs} \
+            -fold {params.fold} -outname {resources.tmpdir}/{params.pre}
         
-        thetaStat do_stat {resources.tmpdir}/thetas.thetas.idx \
+        thetaStat do_stat {resources.tmpdir}/{params.pre}.thetas.idx \
             -win {wildcards.win} -type 0 -step {wildcards.step} \
             -outnames {params.out}) &> {log}
         """
@@ -127,7 +132,7 @@ rule aggregate_downsampled_thetas:
     input:
         expand(
             "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_{population}{{dp}}.N{samplesize}-rep{rep}_{{sites}}-filts.thetaMean.{{win}}_{{step}}.tsv",
-            population=angsd.pop_list,
+            population=[pop for pop in angsd.pop_list if pop not in ["ESkane1917", "WSkane1943"]],
             samplesize=config["downsample_sizes"],
             rep=list(range(0, config["downsample_reps"][0])),
         ),
