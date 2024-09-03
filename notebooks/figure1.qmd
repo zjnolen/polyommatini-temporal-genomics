@@ -106,7 +106,7 @@ areas, but group time periods together in a single boxplot.
 #| fig-width: 6
 #| fig-height: 2.5
 
-hzbox <- ggplot(hz_all, aes(x = time, y = heterozygous_per_1000bp, color = region)) +
+hzbox <- ggplot(hz_all, aes(x = time, y = heterozygous_per_1000bp)) +
   facet_grid(cols = vars(species)) +
   geom_boxplot(
     aes(x = time, y = heterozygous_per_1000bp),
@@ -114,14 +114,17 @@ hzbox <- ggplot(hz_all, aes(x = time, y = heterozygous_per_1000bp, color = regio
     outliers = FALSE
   ) +
   geom_point(
-    aes(color = region),
+    aes(color = region, shape = time),
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
+  scale_shape_manual(values = c(17, 16), guide = "none") +
   ylab("<span style='font-size: 9pt'>Heterozygous sites per 1000bp</span><br><span style='font-size: 7pt'>(excl. transitions)</span>") +
   scale_color_manual(
     values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
     name = "Geographic Region"
   ) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
+  geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
     legend.position.inside = c(0.08, 0.35),
@@ -211,7 +214,7 @@ Plot these the same way as heterozygosity.
 #| fig-width: 6
 #| fig-height: 2.5
 
-frohbox <- ggplot(froh_all, aes(x = time, y = Froh, color = region)) +
+frohbox <- ggplot(froh_all, aes(x = time, y = Froh)) +
   facet_grid(cols = vars(species)) +
   geom_boxplot(
     aes(x = time, y = Froh),
@@ -219,14 +222,17 @@ frohbox <- ggplot(froh_all, aes(x = time, y = Froh, color = region)) +
     outliers = FALSE
   ) +
   geom_point(
-    aes(color = region),
+    aes(color = region, shape = time),
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
+  scale_shape_manual(values = c(17, 16), guide = "none") +
   ylab("<span style='font-size: 9pt'>*F~RoH~* </span><span style='font-size: 7pt'>(*RoH* > 100kb)</span>") +
   scale_color_manual(
     values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
     name = "Geographic Region"
   ) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
+  geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
     legend.position.inside = c(0.08, 0.35),
@@ -325,7 +331,8 @@ fst$time <- factor(
 
 fstplot <- ggplot(fst, aes(x = time, y = weight.fst, group = pair, col = dist / 1000, label = paste0(round(dist / 1000, 1), " km"))) +
   geom_line(linewidth = 0.5) +
-  geom_point(size = 2.5) +
+  geom_point(aes(shape = time), size = 2.5) +
+  scale_shape_manual(values = c(17, 16), guide = "none") +
   # geom_text_repel() +
   facet_grid(cols = vars(species)) +
   theme_bw() +
@@ -384,7 +391,13 @@ map <- readPNG("../resources/gis/sampling_map/historical_map.png")
 map <- rasterGrob(map, interpolate = TRUE)
 map <- ggplot() +
   geom_blank() +
-  annotation_custom(map, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf)
+  annotation_custom(map, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  theme(
+    panel.background = element_rect(
+      fill = "transparent", color = NA),
+    plot.background = element_rect(
+      fill = "transparent", color = NA)
+  )
 
 butterflies <- readPNG("../images/butterfly_species_photos.png")
 butterflies <- rasterGrob(butterflies, interpolate = TRUE)
@@ -393,6 +406,12 @@ butterflies <- ggplot() +
   annotation_custom(
     butterflies,
     xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf
+  ) +
+  theme(
+    panel.background = element_rect(
+      fill = "transparent", color = NA),
+    plot.background = element_rect(
+      fill = "transparent", color = NA)
   )
 
 map_photos <- plot_grid(
@@ -408,5 +427,5 @@ plot_grid(map_photos,
   ncol = 2, nrow = 1
 )
 
-ggsave("../figures/genetic-diversity.png", dpi = 600, create.dir = TRUE, bg = "white")
+ggsave("../figures/fig-diversity.png", dpi = 600, create.dir = TRUE)
 ```

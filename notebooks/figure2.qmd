@@ -289,5 +289,5 @@ plot_grid(
   scale = c(1, 0.99)
 )
 
-ggsave("../figures/pop-structure.png", dpi = 600, create.dir = TRUE, bg = 'white')
+ggsave("../figures/fig-structure.png", dpi = 600, create.dir = TRUE)
 ```

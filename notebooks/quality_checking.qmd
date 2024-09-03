@@ -1,0 +1,299 @@
+---
+title: "Quality checking"
+format:
+  html:
+    code-fold: true
+---
+
+First, we will take a look at the general quality of our results to make
+decisions about final methods, as well as if there are any biases that must be
+considered in our analysis.
+
+```{r}
+#| label: load-packages
+#| code-summary: Load up required packages and setup species and genome lists
+
+library(data.table) # For reading in data while skipping columns
+# library(stringr) # For separating pop names into regions and sampling years
+library(ggplot2) # For plotting
+library(ggpubr) # For adding stats to graphs
+library(cowplot) # For arranging plots into a multi-panel figure
+# library(ggtext) # For more control over axis text layout
+# library(dplyr) # For summarize function and piping
+# library(geosphere) # For including distances on F~ST~ plot
+# library(scales) # For some control of plot scales
+# library(png) # For reading in maps made in QGIS
+# library(grid) # For plotting maps made in QGIS with ggplot
+
+species <- c("picarus", "pargus", "csemiargus")
+genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
+```
+
+## Reference bias and DNA damage
+
+As historical samples will have degraded DNA, we need to consider how we will
+address this difference between historical and modern samples. One method would
+be to rescale the putatively damaged bases with MapDamage2 [@jónsson2013],
+another would be to remove transitions, which are what DNA damage is likely to
+manifest as. The former will leave us with the most data, but may lead to
+overcorrecting true transitions, while the latter should remove damage by
+removing all transition, but will remove a lot of variation data.
+
+We can assess how each of these methods perform by comparing the identity by
+state similarity to the reference when using each. Additionally, this will allow
+us to see if there is a reference bias induced by the shorter fragment length of
+the historical samples. All of the following checks will take place using our
+filtered sites list, as this removes variation induced by poor mapping around
+repetitive content and similar challenging regions.
+
+```{r}
+#| label: fig-ibsref
+#| fig-width: 7
+#| fig-height: 8
+
+ibs_all_trans <- c()
+
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+  ibs <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-trans/qc/ibs_refbias/historical-",
+      s,
+      "-trans.",
+      g,
+      "_all_allsites-filts.refibs.tsv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "ibs.to.ref", "population", "time", "depth")
+  )
+  ibs$species <- s
+  ibs_all_trans <- rbind(ibs_all_trans, ibs)
+}
+
+ibs_all_trans$species <- factor(ibs_all_trans$species, levels = species)
+
+ibs_trans_plot <- ggplot(ibs_all_trans, aes(x = time, y = ibs.to.ref)) +
+  ggtitle("Include Transitions") +
+  facet_grid(cols = vars(species)) +
+  ylab("Mean IBS Similarity to Reference") +
+  geom_boxplot() +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    axis.title.x = element_blank()
+  )
+
+ibs_all_notrans <- c()
+
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+  ibs <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-notrans/qc/ibs_refbias/historical-",
+      s,
+      "-notrans.",
+      g,
+      "_all_allsites-filts.refibs.tsv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "ibs.to.ref", "population", "time", "depth")
+  )
+  ibs$species <- s
+  ibs_all_notrans <- rbind(ibs_all_notrans, ibs)
+}
+
+ibs_all_notrans$species <- factor(ibs_all_notrans$species, levels = species)
+
+ibs_notrans_plot <- ggplot(ibs_all_notrans, aes(x = time, y = ibs.to.ref)) +
+  ggtitle("Exclude Transitions (Method used in manuscript)") +
+  facet_grid(cols = vars(species)) +
+  ylab("Mean IBS Similarity to Reference") +
+  geom_boxplot() +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    axis.title.x = element_blank()
+  )
+
+ibs_all_mapdam <- c()
+
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+  ibs <- fread(
+    paste0(
+      "../angsd/results/datasets/historical-",
+      s,
+      "-mapdam/qc/ibs_refbias/historical-",
+      s,
+      "-mapdam.",
+      g,
+      "_all_allsites-filts.refibs.tsv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "ibs.to.ref", "population", "time", "depth")
+  )
+  ibs$species <- s
+  ibs_all_mapdam <- rbind(ibs_all_mapdam, ibs)
+}
+
+
+ibs_all_mapdam$species <- factor(ibs_all_mapdam$species, levels = species)
+
+ibs_mapdam_plot <- ggplot(ibs_all_mapdam, aes(x = time, y = ibs.to.ref)) +
+  ggtitle("MapDamage Rescaling") +
+  facet_grid(cols = vars(species)) +
+  ylab("Mean IBS Similarity to Reference") +
+  geom_boxplot() +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    axis.title.x = element_blank()
+  )
+
+plot_grid(
+  ibs_trans_plot,
+  ibs_mapdam_plot,
+  ibs_notrans_plot,
+  nrow = 3,
+  labels = c("A", "B", "C")
+)
+
+ggsave("../figures/suppfig-ibs.png")
+```
+
+We can see that the uncorrected historical samples are more distant to the
+reference than the modern ones, and that there is more variation in the
+individual IBS scores in the historical samples. This is good, as it suggests
+that our samples do not have a reference bias from smaller fragment size.
+Likely, the extra variation in IBS score is due to differences in per sample DNA
+damage, and we can see that while both methods of correction reduce this
+variation, it is best in the transition removal scores. Additionally, while in
+*C. semiargus*, both methods do not 'overcorrect' and result in reference
+biased historical samples, in the other two species, MapDamage induces
+substantial reference bias to the historical samples.
+
+We can confirm that this is likely a bias and not a true shorter distance to the
+reference for historical samples in these species by looking at the
+transition/transversion ratios for genotype calls:
+
+As we can see, when performing genotype calling, we get lower
+transition/transversion ratios in historical samples compared to a consistent
+uniform rate in the modern ones. This suggests that transition reads that would
+support likely 'true' transitions are being filtered too much due to the
+MapDamage rescaling.
+
+For this reason, we decide to move forward using transition removal as our DNA
+damage correction method. Next, we check to make sure that after this correction
+we don't see any biases from fragment length or depth of coverage in sample IBS
+scores.
+
+```{r}
+#| label: fig-covlenibs
+#| eval: false
+
+mapdam_all <- data.frame()
+
+histsamp <- ibs_all_notrans[ibs_all_notrans$time == "historical", ]$sample
+
+for (i in histsamp) {
+  s <- ibs_all_notrans[ibs_all_notrans$sample == i, ]$species
+  g <- genomes[match(s, species)]
+  dam <- read.table(
+    paste0(
+      "../angsd/results/mapping/qc/damageprofiler/",
+      i,
+      ".",
+      g,
+      "/5pCtoT_freq.txt"
+    ),
+    header = TRUE,
+    sep = "\t",
+    comment.char = "#"
+  )
+  avgdam <- mean(dam[c(1:5), "X5pC.T"])
+  lgdist <- read.table(
+    paste0(
+      "../angsd/results/mapping/qc/damageprofiler/",
+      i,
+      ".",
+      g,
+      "/lgdistribution.txt"
+    ),
+    header = TRUE,
+    sep = "\t",
+    comment.char = "#"
+  )
+  lgdist <- lgdist[lgdist$Std == "+", ]
+  medlen <- with(lgdist, median(rep(x = Length, times = Occurrences)))
+  row <- c(i, avgdam, medlen, species[s])
+  mapdam_all <- unname(mapdam_all)
+  mapdam_all <- rbind(mapdam_all, row)
+}
+
+colnames(mapdam_all) <- c("sample", "avgdam", "medlen", "species")
+
+qc_all <- c()
+
+for (s in species) {
+  g <- genomes[match(s, species)]
+  for (m in c("mapdam", "notrans")) {
+    qc <- fread(
+      paste0(
+        "../angsd/results/datasets/historical-",
+        s,
+        "-",
+        m,
+        "/qc/historical-",
+        s,
+        "-",
+        m,
+        ".",
+        g,
+        "_all.sampleqc.tsv"
+      ),
+      header = TRUE,
+      sep = "\t",
+      select = c("sample", "allsites-filts.depth.mean")
+    )
+    qc_all <- rbind(qc_all, qc)
+  }
+}
+
+mapdam_mapdam <- merge(mapdam_all, ibs_all_mapdam, by = c("sample", "species"))
+mapdam_notrans <- merge(mapdam_all, ibs_all_notrans, by = c("sample", "species"))
+mapdam_mapdam <- merge(mapdam_mapdam, qc_all, by = "sample")
+mapdam_notrans <- merge(mapdam_notrans, qc_all, by = "sample")
+
+ibs_cov_all <- merge(ibs_all_notrans, qc_all, by = "sample")
+
+ggplot(mapdam_mapdam, aes(x = medlen, y = ibs.to.ref)) +
+  facet_grid(cols = vars(species), scales = "free") +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor()
+
+ggplot(mapdam_notrans, aes(x = `allsites-filts.depth.mean`, y = ibs.to.ref)) +
+  facet_grid(cols = vars(species), scales = "free") +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_cor(label.y = 0.99) +
+  stat_regline_equation(label.y = 0.989)
+```
+
+It appears that while fragment size has no notable impact on IBS scores, mean
+sequencing depth has a slightly negative relationship with IBS scores in all
+three species. However, the difference in IBS scores from the highest and lowest
+depth historical samples are relatively small, 0.0021 in *P. icarus*, 0.0012 in
+*P. argus*, and 0.0006 in *C. semiargus*, so likely there will be little impact
+on the results, but we will have to keep this in mind and downsample sequencing
+depth to confirm our results are consistent after controlling for this.
