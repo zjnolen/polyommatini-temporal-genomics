@@ -11,7 +11,7 @@ calling_drop: ["MZLU153045", "MZLU153040"]
 gerp_rel_load: true
 gerp_scores: "../GenErode/results/gerp/GCA_905404155.3_ilPleArgu1.3_genomic.genome.ancestral.rates.gz"
 lower_gerp_thresh: 0.12074
-downsample_thetas: false
+downsample_thetas: true
 downsample_sizes: [4]
 downsample_reps: [100]
 
