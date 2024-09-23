@@ -14,7 +14,6 @@ module angsd:
 use rule * from angsd as angsd_*
 
 
-include: "rules/ref_bias.smk"
 include: "rules/call_genotypes.smk"
 include: "rules/bcftools_roh.smk"
 include: "rules/gerp.smk"
