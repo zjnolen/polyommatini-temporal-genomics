@@ -57,15 +57,13 @@ rule calc_vep_load:
         samples="results/datasets/{dataset}/bcfs/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.samples",
         pops="results/datasets/{dataset}/poplists/{dataset}_all.indiv.list",
     output:
-        # rxy="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.rxy.tsv",
         varcounts="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.varimpacts.tsv",
         varcounts_boots="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.varimpacts_boots.tsv",
-        # rxy_nomiss="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.rxy_nomiss.tsv",
         varcounts_nomiss="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.varimpacts_nomiss.tsv",
     threads: lambda w, attempt: 2 * attempt
     conda:
         "../envs/r.yaml"
     resources:
-        runtime="6h"
+        runtime="6h",
     script:
         "../scripts/genetic_load_vep.R"
