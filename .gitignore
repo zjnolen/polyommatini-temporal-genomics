@@ -1,0 +1,26 @@
+slurm-*
+.vscode
+.conda
+benchmarks
+data
+/.quarto/
+.snakemake
+.DS_Store
+generode
+reports
+logs
+.backup_files
+commented_versions
+misc
+
+
+# Ignore only for now until determining what needs to be included
+index.qmd
+references.bib
+figures
+images
+/scripts
+angsd/results
+resources
+_freeze
+_manuscript
