@@ -2,12 +2,18 @@ project:
   type: manuscript
 
 execute:
-  freeze: auto
+  freeze: false
 
 toc: false
-number-sections: true
 
 format:
   html: default
-  docx: default
+  docx:
+    reference-doc: custom-reference-doc.docx
   pdf: default
+
+fig-dpi: 600
+
+
+bibliography: references.bib
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/pnas.csl
