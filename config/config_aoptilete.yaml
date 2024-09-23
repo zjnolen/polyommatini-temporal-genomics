@@ -12,6 +12,9 @@ vep: false
 gerp_rel_load: false
 gerp_scores: ""
 lower_gerp_thresh: ""
+downsample_thetas: false
+downsample_sizes: [4]
+downsample_reps: [100]
 
 #=====================Dataset Configuration============================#
 
@@ -183,7 +186,7 @@ params:
     roh_bins: [ 250000, 500000, 1000000, 2500000, 5000000 ] # in ascending order, bins are between adjacent values and between min_roh_length and value 1 and the last value and infinity
   realsfs:
     fold: 1 # Should only be set to 1, unless ancestral reference is given above
-    sfsboot: 1
+    sfsboot: 300
   fst:
     whichFst: 1
     win_size: 10000
