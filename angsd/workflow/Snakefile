@@ -6,7 +6,7 @@ min_version("7.32.0")
 
 module angsd:
     snakefile:
-        "https://raw.githubusercontent.com/zjnolen/PopGLen/ff368d0d292fe9a8648f69872fb7e68947bfea48/workflow/Snakefile"
+        "https://raw.githubusercontent.com/zjnolen/PopGLen/3c9453198b0a3f5ee08ddfc0df62ef2dff95b6bb/workflow/Snakefile"
     config:
         config
 
@@ -70,8 +70,11 @@ if config["gerp_rel_load"]:
 if config["downsample_thetas"]:
     all_outputs.extend(
         expand(
-            "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_all{dp}.downsampled_{{sites}}-filts.thetaMean.{win}_{step}.tsv",
-            dp=[""],
+            [
+                "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_all{dp}.downsampled_{{sites}}-filts.thetaMean.{win}_{step}.tsv",
+                "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_modern-historical{dp}.N4_{{sites}}-filts.wilcoxon.tsv",
+            ],
+            dp=[".dp2", ".dp3"],
             win=config["params"]["thetas"]["win_size"],
             step=config["params"]["thetas"]["win_step"],
         )

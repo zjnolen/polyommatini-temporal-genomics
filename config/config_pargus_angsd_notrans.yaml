@@ -9,8 +9,8 @@ min_phred_roh: 30
 vep: true
 calling_drop: ["MZLU153045", "MZLU153040"]
 gerp_rel_load: true
-gerp_scores: "../GenErode/results/gerp/GCA_905404155.3_ilPleArgu1.3_genomic.genome.ancestral.rates.gz"
-lower_gerp_thresh: 0.12074
+gerp_scores: "../generode-pargus/results/gerp/GCA_905404155.3_ilPleArgu1.3_genomic.genome.ancestral.rates.gz"
+lower_gerp_thresh: 0.224999
 downsample_thetas: true
 downsample_sizes: [4]
 downsample_reps: [100]
@@ -41,7 +41,9 @@ ancestral:
 
 exclude_ind: []
 
-excl_pca-admix: ["MZLU107435", "MZLU153003", "MZLU152940"]
+excl_pca-admix: ["MZLU107435"]
+
+#"MZLU153003", "MZLU152940"
 
 #====================== Analysis Selection ============================#
 
@@ -74,8 +76,8 @@ analyses:
   admix_ngsadmix: true
   relatedness: 
     ngsrelate: true
-    ibsrelate_ibs: true
-    ibsrelate_sfs: true
+    ibsrelate_ibs: false
+    ibsrelate_sfs: false
   1dsfs: false
   1dsfs_boot: false
   2dsfs: false
@@ -171,6 +173,8 @@ params:
     ancerror_outgroup_fasta:
     ancerror_error_free_ind:
     ancerror_filter: false
+  ngsrelate:
+    prune: false
   ngsld:
     max_kb_dist_est-ld: 4000
     rnd_sample_est-ld: 0.001
@@ -189,7 +193,7 @@ params:
     roh_bins: [ 250000, 500000, 1000000, 2500000, 5000000 ] # in ascending order, bins are between adjacent values and between min_roh_length and value 1 and the last value and infinity
   realsfs:
     fold: 1 # Should only be set to 1, unless ancestral reference is given above
-    sfsboot: 1
+    sfsboot: 300
   fst:
     whichFst: 1
     win_size: 10000

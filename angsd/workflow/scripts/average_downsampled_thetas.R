@@ -3,26 +3,45 @@
 
 sink(file(snakemake@log[[1]], open = "wt"), type = "message")
 
+library(Hmisc)
+
 # Function that averages thetas across windows from sliding window output.
 average_pestpg <- function(pestpg, popname, subsize, rep, minsites) {
   theta <- as.data.frame(read.table(pestpg, header = TRUE, comment.char = ""))
   theta <- theta[!theta$nSites < minsites, ]
   theta$watterson <- theta$tW / theta$nSites
   theta$pi <- theta$tP / theta$nSites
+  watterson <- smean.cl.boot(
+    theta[theta$nSites >= 1000, ]$watterson,
+    B = 1000,
+    na.rm = TRUE
+  )
+  pi <- smean.cl.boot(
+    theta[theta$nSites >= 1000, ]$pi,
+    B = 1000,
+    na.rm = TRUE
+  )
+  tajima <- smean.cl.boot(
+    theta[theta$nSites >= 1000, ]$Tajima,
+    B = 1000,
+    na.rm = TRUE
+  )
+  output <- theta[, c("Chr", "WinCenter", "pi", "watterson", "Tajima")]
   return(
-    cbind(
+    list(c(
       popname,
       subsize,
       rep,
-      mean(theta$pi),
-      mean(theta$watterson),
-      mean(theta$Tajima)
-    )
+      pi,
+      watterson,
+      tajima
+    ),
+    output)
   )
 }
 
-# averaging for input files
-avg <- average_pestpg(
+# averaging for input file
+output <- average_pestpg(
   snakemake@input[[1]],
   snakemake@wildcards[["population"]],
   snakemake@wildcards[["samplesize"]],
@@ -32,10 +51,19 @@ avg <- average_pestpg(
 
 # Write averages to file.
 write.table(
-  avg,
+  output[[1]],
   file = snakemake@output[[1]],
   quote = FALSE,
   sep = "\t",
   row.names = FALSE,
   col.names = FALSE
+)
+
+write.table(
+  output[[2]],
+  file = snakemake@output[[2]],
+  quote = FALSE,
+  sep = "\t",
+  row.names = FALSE,
+  col.names = TRUE
 )

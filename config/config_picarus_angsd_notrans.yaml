@@ -9,8 +9,8 @@ min_phred_roh: 30
 vep: true
 calling_drop: ["MZLULEP4538", "MZLULEP3259", "MZLULEP3133", "MZLULEP3668", "MZLULEP3026", "MZLULEP1911", "MZLULEP3661", "MZLULEP1824","MZLULEP1730","MZLULEP1748","MZLULEP4316","MZLULEP4555","MZLULEP1868"]
 gerp_rel_load: true
-gerp_scores: "../GenErode/results/gerp/GCA_937595015.1_ilPolIcar1.1_genomic.genome.ancestral.rates.gz"
-lower_gerp_thresh: 0.1147
+gerp_scores: "../generode-picarus/results/gerp/GCA_937595015.1_ilPolIcar1.1_genomic.genome.ancestral.rates.gz"
+lower_gerp_thresh: 0.179
 downsample_thetas: true
 downsample_sizes: [4]
 downsample_reps: [100]
@@ -75,8 +75,8 @@ analyses:
   admix_ngsadmix: true
   relatedness: 
     ngsrelate: true
-    ibsrelate_ibs: true
-    ibsrelate_sfs: true
+    ibsrelate_ibs: false
+    ibsrelate_sfs: false
   1dsfs: false
   1dsfs_boot: false
   2dsfs: false
@@ -168,10 +168,8 @@ params:
     snp_pval: "1e-6"
     min_maf: 0.05 # Set -1 to disable
     mindepthind_heterozygosity: 1
-    doancerror: 2
-    ancerror_outgroup_fasta:
-    ancerror_error_free_ind:
-    ancerror_filter: false
+  ngsrelate:
+    prune: false
   ngsld:
     max_kb_dist_est-ld: 4000
     rnd_sample_est-ld: 0.001
@@ -190,7 +188,7 @@ params:
     roh_bins: [ 250000, 500000, 1000000, 2500000, 5000000 ] # in ascending order, bins are between adjacent values and between min_roh_length and value 1 and the last value and infinity
   realsfs:
     fold: 1 # Should only be set to 1, unless ancestral reference is given above
-    sfsboot: 1
+    sfsboot: 300
   fst:
     whichFst: 1
     win_size: 10000

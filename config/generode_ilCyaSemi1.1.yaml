@@ -9,5 +9,7 @@
 
 ref_path: "../resources/ref/GCA_905187585.1_ilCyaSemi1.1_genomic.fna"
 gerp: True
-gerp_ref_path: "../resources/outgroup_genomes/ilCyaSemi1.1"
-tree: "../resources/trees/4776_Wiemers_2020.nwk"
+gerp_ref_path: "../resources/lepidoptera_genomes/ilCyaSemi1.1"
+tree: "../resources/trees/lepidoptera-set.nwk"
+min_gerp: -2
+max_gerp: 30
