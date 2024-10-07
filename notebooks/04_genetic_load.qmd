@@ -630,7 +630,7 @@ plot_grid(frohplot, load, legend_inb,
   ncol = 1,
   rel_heights = c(0.4, 0.7, 0.1),
   labels = c("A", "", "")
-)
+) + bgcolor("white")
 
 ggsave("../figures/fig-load.png", dpi = 600, create.dir = TRUE)
 ```

@@ -17,6 +17,7 @@ library(data.table)
 library(stringr)
 library(ggplot2)
 library(dplyr)
+library(ggpubr) #for bgcolor
 
 main_species_f <- c("picarus-notrans", "pargus-notrans", "csemiargus-notrans")
 main_species <- c("picarus", "pargus", "csemiargus")
@@ -278,7 +279,7 @@ for (d in c("full", "3", "2")) {
     )
 }
 
-plots[["full"]]
+plots[["full"]] + bgcolor("white")
 
 ggsave("../figures/fig-specdiv.png", dpi = 600, create.dir = TRUE)
 ```

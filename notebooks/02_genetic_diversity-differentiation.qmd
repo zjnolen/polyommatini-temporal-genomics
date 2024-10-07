@@ -897,7 +897,7 @@ map_photos <- plot_grid(
 plot_grid(map_photos,
   plot_grid(arrhz, arrfroh, arrfst, ncol = 1, nrow = 3, labels = c("C", "D", "E"), align = "v", axis = "lr"),
   ncol = 2, nrow = 1
-)
+) + bgcolor("white")
 
 ggsave("../figures/fig-diversity.png", dpi = 600, create.dir = TRUE)
 ```

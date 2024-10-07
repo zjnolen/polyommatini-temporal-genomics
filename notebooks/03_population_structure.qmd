@@ -19,6 +19,7 @@ library(gridExtra) # For plotting grobs for admix
 library(dplyr) # For merging dataframes
 library(ggh4x) # For nested ggplot facets
 library(ggtext) # For markdown syntax in ggplot
+library(ggpubr) #for bgcolor
 
 species <- c("picarus", "pargus", "csemiargus")
 genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
@@ -283,6 +284,9 @@ supplementary materials.
 #| label: suppfig-admix
 #| fig-height: 8
 #| fig-width: 6
+
+# Read in evaladmix functions
+source("https://raw.githubusercontent.com/GenisGE/evalAdmix/2a51aebaca70c9d3b5fb359d6c5c40145c58fce5/visFuns.R")
 
 for (i in c(1:length(species))) {
   s <- species[i]
@@ -557,7 +561,7 @@ plot_grid(
   rel_heights = c(2, 2.5),
   labels = c("AUTO"),
   scale = c(1, 0.99)
-)
+) + bgcolor("white")
 
 ggsave("../figures/fig-structure.png", dpi = 600, create.dir = TRUE)
 ```
