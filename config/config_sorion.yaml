@@ -6,7 +6,7 @@ bcf_trans: "notrans"
 bcf_missing: "0.2"
 bcf_subsample_dp: "5"
 calling_drop: []
-bcftools_roh: true
+bcftools_roh: false # all samples <5X depth
 min_phred_roh: 30
 vep: false
 gerp_rel_load: false

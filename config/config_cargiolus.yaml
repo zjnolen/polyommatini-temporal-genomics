@@ -5,7 +5,7 @@ gff: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/museum-manuscr
 bcf_trans: "notrans"
 bcf_missing: "0.2"
 bcf_subsample_dp: "5"
-calling_drop: []
+calling_drop: ["MZLU166854"]
 bcftools_roh: true
 min_phred_roh: 30
 vep: false
