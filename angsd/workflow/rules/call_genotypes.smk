@@ -150,12 +150,14 @@ rule bcftools_merge_all:
         stats="results/datasets/{dataset}/bcfs/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.trans.fmiss{miss}.bcf.stats",
     conda:
         "../envs/bcftools.yaml"
+    params:
+        merge=lambda w, input: "view" if len(input) == 1 else "merge"
     threads: 2
     resources:
         runtime=720,
     shell:
         """
-        bcftools merge -Ou {input} |
+        bcftools {params.merge} -Ou {input} |
             bcftools +fill-tags -Ou -- -t all |
             bcftools view -m2 -M2 -v snps -i 'MAF > 0' -Ou |
             bcftools view -i 'F_MISSING <= {wildcards.miss}' -Ob > {output.bcf}
