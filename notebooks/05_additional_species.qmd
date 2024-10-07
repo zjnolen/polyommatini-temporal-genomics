@@ -16,24 +16,19 @@ pair comparisons in the focal species to see if we get the correct
 library(data.table)
 library(stringr)
 library(ggplot2)
-library(dplyr) # For summarize function (check if still in code blocks)
+library(dplyr)
 
 main_species_f <- c("picarus-notrans", "pargus-notrans", "csemiargus-notrans")
-# main_species_f <- c("picarus-mapdam", "pargus-mapdam", "csemiargus-mapdam")
 main_species <- c("picarus", "pargus", "csemiargus")
 main_genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 
 species <- c(
-  "aagestis", "aoptilete", "cargiolus", "cminimus", "palcon",
-  "pamandus", "pargyrognomon", "parion", "sorion"
+  "aagestis", "aoptilete", "cargiolus", "palcon",
+  "pamandus", "pargyrognomon", "sorion"
 )
-# species <- c(
-#   "aagestis-mapdam", "aoptilete-mapdam", "cargiolus-mapdam", "cminimus-mapdam", "palcon-mapdam",
-#   "pamandus-mapdam", "pargyrognomon-mapdam", "parion-mapdam", "sorion-mapdam"
-# )
 genomes <- c(
-  "ilAriAges2.1", "ilCyaSemi1.1", "ilCelArgi3.2", "ilPolIcar1.1",
-  "ilPheArio1.1", "ilPolIcar1.1", "ilPleArgu1.3", "ilPheArio1.1",
+  "ilAriAges2.1", "ilCyaSemi1.1", "ilCelArgi3.2",
+  "ilPheArio1.1", "ilPolIcar1.1", "ilPleArgu1.3",
   "ilGlaAlex1.1"
 )
 ```
@@ -53,7 +48,7 @@ use this same calculation as it is a useful visualization.
 
 relhet_all <- c()
 
-dp <- c("full", 4, 3, 2)
+dp <- c("full", 3, 2)
 
 for (dep in dp) {
   if (dep == "full") {
@@ -79,7 +74,7 @@ for (dep in dp) {
       header = TRUE,
       sep = "\t"
     )
-    qc <- qc[ , c("sample", "allsites-filts.depth.mean")]
+    qc <- qc[, c("sample", "allsites-filts.depth.mean")]
     hz <- fread(
       paste0(
         "../angsd/results/datasets/historical-",
@@ -110,7 +105,7 @@ for (dep in dp) {
     hz <- merge(hz, samples, by = "sample")
     hz <- merge(hz, qc, by = "sample")
     if (dep != "full") {
-      hz <- hz[hz$`allsites-filts.depth.mean` > (as.numeric(dep)-0.1), ]
+      hz <- hz[hz$`allsites-filts.depth.mean` > (as.numeric(dep) - 0.1), ]
     }
     if (s %in% species) {
       hz$year <- str_sub(hz$population, 1, 4)
@@ -175,7 +170,7 @@ for (dep in dp) {
         } else {
           df <- data.frame(
             "hist", "mod", 0, 0, 0, 0, 0, 0, 0, 0, 0, "other_region", s, dep
-            )
+          )
           colnames(df) <- colnames(relhet_all)
           relhet_all <- rbind(relhet_all, df)
         }
@@ -183,18 +178,29 @@ for (dep in dp) {
     } else {
       df <- data.frame(
         "hist", "mod", 0, 0, 0, 0, 0, 0, 0, 0, 0, "other_region", s, dep
-        )
+      )
       colnames(df) <- colnames(relhet_all)
       relhet_all <- rbind(relhet_all, df)
     }
   }
 }
 
-# Now, we drop Phengaris arion, as unfortunately our modern sample has too low
-# sequencing depth (~0.2X, it was also a museum sample).
-relhet_all <- relhet_all[relhet_all$species != "parion", ]
-# relhet_all <- relhet_all[relhet_all$species != "parion-mapdam", ]
+relhet_meds <- relhet_all %>%
+  group_by(species, region, depth) %>%
+  summarise(
+    med = median(pred_het_ret_100),
+    r = min(pred_het_ret_100),
+    max = max(pred_het_ret_100)
+  )
+
+write.table(relhet_meds, "../tables/relhet_meds.tsv",
+  sep = "\t", quote = FALSE,
+  row.names = FALSE
+)
 ```
+
+After calculating the heterozygosity retention per species/population, we can
+assemble the results into a figure.
 
 ```{r}
 #| label: fig-other-blues
@@ -203,13 +209,13 @@ relhet_all <- relhet_all[relhet_all$species != "parion", ]
 
 species_names <- c(
   "Aricia agestis", "Agriades optilete*",
-  "Celastrina argiolus", "Cupido minimus*", "Cyaniris semiargus",
-  "Phengaris alcon*", "Polyommatus amandus", "Plebejus argus",
+  "Celastrina argiolus", "Cyaniris semiargus",
+  "Phengaris alcon*", "Polyommatus amandus*", "Plebejus argus",
   "Plebejus argyrognomon*", "Polyommatus icarus", "Scolitantides orion*"
 )
 
 cons_status <- c(
-  "(LC)", "(LC)", "(LC)", "(NT)", "(LC)", "(EN)", "(LC)", "(LC)",
+  "(LC)", "(LC)", "(LC)", "(LC)", "(EN)", "(LC)", "(LC)",
   "(CR)", "(LC)", "(EN)"
 )
 
@@ -217,7 +223,7 @@ full_name <- paste0(species_names, " ", cons_status)
 
 spec_cons <- data.frame(t(rbind(species_names, cons_status, full_name)))
 spec_cons$cons_status <- factor(spec_cons$cons_status,
-  levels = c("(LC)", "(NT)", "(EN)", "(CR)")
+  levels = c("(LC)", "(EN)", "(CR)")
 )
 
 relhet_all$species <- factor(relhet_all$species,
@@ -241,8 +247,7 @@ rects <- data.frame(
 
 plots <- list()
 
-for (d in c("full", "4", "3", "2")) {
-
+for (d in c("full", "3", "2")) {
   plots[[d]] <- ggplot(
     relhet_all[relhet_all$depth == d, ],
     aes(x = species, y = pred_het_ret_100, color = region)
@@ -278,6 +283,9 @@ plots[["full"]]
 ggsave("../figures/fig-specdiv.png", dpi = 600, create.dir = TRUE)
 ```
 
+Since we have multiple depth subsamplings, these can be shown in a supplementary
+figure.
+
 ```{r}
 #| label: suppfig-other-blues
 #| fig-width: 10
@@ -285,7 +293,7 @@ ggsave("../figures/fig-specdiv.png", dpi = 600, create.dir = TRUE)
 library(cowplot)
 
 plot_grid(
-  plots[["4"]],
+  plots[["full"]],
   plots[["3"]],
   plots[["2"]],
   ncol = 1,
@@ -293,24 +301,4 @@ plot_grid(
 )
 
 ggsave("../figures/suppfig-specdiv.png", dpi = 600, create.dir = TRUE)
-```
-
-```{r}
-#| evaluate: FALSE
-
-spmeans <- relhet_all %>%
-  group_by(species) %>%
-  summarize(modhz = median_hilow(modhz),
-            pred_het_ret_100 = median_hilow(pred_het_ret_100))
-
-spmeans <- data.frame(spmeans)
-
-ggplot(spmeans, aes(x = modhz$y, y = pred_het_ret_100$y)) +
-  geom_smooth(method = "lm") +
-  geom_errorbarh(aes(xmin=modhz$ymin, xmax=modhz$ymax, color = species)) + 
-  geom_errorbar(aes(ymin=pred_het_ret_100$ymin, ymax=pred_het_ret_100$ymax, color = species)) +
-  geom_point(size = 3, aes(color = species))
-
-summary(lm(spmeans$pred_het_ret_100$y ~ spmeans$modhz$y))
-
 ```

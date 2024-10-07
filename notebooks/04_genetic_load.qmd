@@ -1,12 +1,12 @@
 ---
-title: "Figure 3: Genetic load"
+title: "Genetic load"
 format:
   html:
     code-fold: true
 ---
 
 The third figure focuses on genetic load, especially in relation to inbreeding
-in *C. semiargus*. We measure genetic load using two methods, one using highly
+in *Cy. semiargus*. We measure genetic load using two methods, one using highly
 conserved regions determined from conservation scores (GERP), the other using
 genome annotations to infer putative impact classes for each variant.
 
@@ -38,7 +38,8 @@ of GERP scores out of all genomic positions, and calculate an estimate of
 relative mutational load from that. In this case, relative mutational load is
 estimated per individual as the derived allele count at each position multiplied
 by its GERP score, summed across the genome and divided by the total derived
-allele count.
+allele count (which we will present as a value per 1000 derived alleles for
+readability).
 
 Here, it is done per individual by summing the product of derived allele counts
 at each position with their GERP score, then dividing the sum by the total
@@ -78,7 +79,7 @@ for (i in c(1:length(species))) {
       s,
       "-notrans.",
       g,
-      "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.bcftools.ind_froh.tsv"
+      "_all.dp5_allsites-filts.filtered_mindp4-biallelic.notrans.fmiss0.2.bcftools.ind_froh.tsv"
     ),
     header = TRUE,
     sep = "\t",
@@ -96,7 +97,7 @@ gerp_all$region <- str_sub(gerp_all$population, 1, -5)
 gerp_all$species <- factor(
   gerp_all$species,
   levels = species,
-  labels = c("P. icarus", "P. argus", "C. semiargus")
+  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
 )
 
 gerp_all$time <- factor(
@@ -109,7 +110,7 @@ gerp_all$region <- factor(
   gerp_all$region,
   levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
   labels = c(
-    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "N Småland", "Öland"
+    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
   )
 )
 
@@ -124,13 +125,8 @@ gerp <- ggplot(gerp_all, aes(x = time, y = relload * 1000)) +
   ylab("Conserved Regions") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
-  # scale_color_manual(
-  #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
-  #   name = "Geographic Region"
-  # ) +
   theme_bw() +
   theme(
-    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_blank(),
@@ -148,43 +144,35 @@ gerp_hom <- ggplot(gerp_all, aes(x = time, y = relload_hom * 1000)) +
   ylab("Conserved Regions") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
-  # scale_color_manual(
-  #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
-  #   name = "Geographic Region"
-  # ) +
   theme_bw() +
   theme(
-    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_blank(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
 
+# Output table of statistical tests
 
-  # facet_grid(cols = vars(species)) +
-  # geom_boxplot(outliers = FALSE) +
-  # geom_point(
-  #   aes(color = Froh, group = region),
-  #   position = position_jitterdodge(jitter.width = 0.05)
-  # ) +
-  # scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  # # scale_color_manual(
-  # #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
-  # #   name = "Geographic Region"
-  # # ) +
-  # ylab("Total Load<br>Moderate Impact") +
-  # scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
-  # geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
-  # theme_bw() +
-  # theme(
-  #   legend.position = "none",
-  #   panel.grid.major = element_blank(),
-  #   panel.grid.minor = element_blank(),
-  #   axis.title.x = element_blank(),
-  #   axis.title.y = element_markdown(size = 9),
-  #   strip.text.x = element_text(size = 10, face = "italic")
-  # )
+gerp_all$time <- factor(gerp_all$time, levels = c("Modern", "Historical"))
+
+gerp_stats <- gerp_all %>%
+  group_by(species) %>%
+  summarise(
+    method = t.test(relload * 1000 ~ time)$method,
+    meandiff = t.test(relload * 1000 ~ time)$estimate[1] - t.test(relload * 1000 ~ time)$estimate[2],
+    conf.low = t.test(relload * 1000 ~ time)$conf.int[1],
+    conf.hi = t.test(relload * 1000 ~ time)$conf.int[2],
+    stat = t.test(relload * 1000 ~ time)$statistic,
+    p.value = t.test(relload * 1000 ~ time)$p.value,
+    meandiff_rel = t.test(relload_hom * 1000 ~ time)$estimate[1] - t.test(relload_hom * 1000 ~ time)$estimate[2],
+    conf.low_rel = t.test(relload_hom * 1000 ~ time)$conf.int[1],
+    conf.hi_rel = t.test(relload_hom * 1000 ~ time)$conf.int[2],
+    stat_rel = t.test(relload_hom * 1000 ~ time)$statistic,
+    p.value_rel = t.test(relload_hom * 1000 ~ time)$p.value
+  )
+
+gerp_stats$variants <- "gerp"
 
 gerp
 
@@ -204,24 +192,11 @@ of the alternate allele, treating the alternate as putatively deleterious.
 ```{r}
 #| label: fig-vepload
 
-# rxy_all <- c()
 varcounts_all <- c()
 
 for (i in c(1:length(species))) {
   s <- species[i]
   g <- genomes[i]
-  # # Read in Rxy outputs
-  # rxy <- read.table(
-  #   paste0(
-  #     "../angsd/results/datasets/historical-",
-  #     s,
-  #     "-notrans/analyses/vep/historical-",
-  #     s,
-  #     "-notrans.",
-  #     g,
-  #     "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.rxy.tsv"
-  #   ),
-  #   header = TRUE)
 
   # Read in variant impact counts
   varcounts <- read.table(
@@ -234,7 +209,8 @@ for (i in c(1:length(species))) {
       g,
       "_all.dp5_allsites-filts.filtered_mindp4-biallelic.notrans.fmiss0.2.varimpacts.tsv"
     ),
-    header = TRUE)
+    header = TRUE
+  )
 
   froh <- fread(
     paste0(
@@ -244,7 +220,7 @@ for (i in c(1:length(species))) {
       s,
       "-notrans.",
       g,
-      "_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.bcftools.ind_froh.tsv"
+      "_all.dp5_allsites-filts.filtered_mindp4-biallelic.notrans.fmiss0.2.bcftools.ind_froh.tsv"
     ),
     header = TRUE,
     sep = "\t",
@@ -253,17 +229,9 @@ for (i in c(1:length(species))) {
 
   varcounts <- merge(varcounts, froh, by = c("sample", "population", "time", "depth"))
 
-  # rxy$species <- s
   varcounts$species <- s
-  # rxy_all <- rbind(rxy_all, rxy)
   varcounts_all <- rbind(varcounts_all, varcounts)
 }
-
-# rxy_all$species <- factor(
-#   rxy_all$species,
-#   levels = species,
-#   labels = c("P. icarus", "P. argus", "C. semiargus")
-# )
 
 varcounts_all$year <- str_sub(varcounts_all$population, -4, -1)
 varcounts_all$region <- str_sub(varcounts_all$population, 1, -5)
@@ -271,7 +239,7 @@ varcounts_all$region <- str_sub(varcounts_all$population, 1, -5)
 varcounts_all$species <- factor(
   varcounts_all$species,
   levels = species,
-  labels = c("P. icarus", "P. argus", "C. semiargus")
+  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
 )
 
 varcounts_all$time <- factor(
@@ -284,20 +252,11 @@ varcounts_all$region <- factor(
   varcounts_all$region,
   levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
   labels = c(
-    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "N Småland", "Öland"
+    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
   )
 )
 
-# ggplot(rxy_all, aes(x = var.impact, y = rxy.hist.mod)) +
-#   facet_grid(cols = vars(species)) +
-#   # geom_boxplot() +
-#   # geom_boxplot() +
-#   geom_hline(yintercept = 1) +
-#   # ylim(c(0.4,1.6)) +
-#   stat_summary(fun.data = median_hilow, geom = "pointrange",
-#     position = position_dodge(width = 0.8))
-
-high <- ggplot(varcounts_all, aes(x = time, y = high*1000/alts)) +
+high <- ggplot(varcounts_all, aes(x = time, y = high * 1000 / alts)) +
   facet_grid(cols = vars(species)) +
   geom_boxplot(outliers = FALSE) +
   geom_point(
@@ -305,23 +264,18 @@ high <- ggplot(varcounts_all, aes(x = time, y = high*1000/alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  # scale_color_manual(
-  #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
-  #   name = "Geographic Region"
-  # ) +
   ylab("High Impact") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
-    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_blank(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
 
-high_hom <- ggplot(varcounts_all, aes(x = time, y = high_hom*1000/alts)) +
+high_hom <- ggplot(varcounts_all, aes(x = time, y = high_hom * 1000 / alts)) +
   facet_grid(cols = vars(species)) +
   geom_boxplot(outliers = FALSE) +
   geom_point(
@@ -329,23 +283,18 @@ high_hom <- ggplot(varcounts_all, aes(x = time, y = high_hom*1000/alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  # scale_color_manual(
-  #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
-  #   name = "Geographic Region"
-  # ) +
   ylab("High Impact") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
-    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_blank(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
 
-mod <- ggplot(varcounts_all, aes(x = time, y = mod*1000/alts)) +
+mod <- ggplot(varcounts_all, aes(x = time, y = mod * 1000 / alts)) +
   facet_grid(cols = vars(species)) +
   geom_boxplot(outliers = FALSE) +
   geom_point(
@@ -353,23 +302,18 @@ mod <- ggplot(varcounts_all, aes(x = time, y = mod*1000/alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  # scale_color_manual(
-  #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
-  #   name = "Geographic Region"
-  # ) +
   ylab("Moderate Impact") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
-    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_blank(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
 
-mod_hom <- ggplot(varcounts_all, aes(x = time, y = mod_hom*1000/alts)) +
+mod_hom <- ggplot(varcounts_all, aes(x = time, y = mod_hom * 1000 / alts)) +
   facet_grid(cols = vars(species)) +
   geom_boxplot(outliers = FALSE) +
   geom_point(
@@ -377,27 +321,69 @@ mod_hom <- ggplot(varcounts_all, aes(x = time, y = mod_hom*1000/alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  # scale_color_manual(
-  #   values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
-  #   name = "Geographic Region"
-  # ) +
   ylab("Moderate Impact") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
-    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_blank(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
+
+# Output table of statistical tests
+
+varcounts_all$time <- factor(varcounts_all$time, levels = c("Modern", "Historical"))
+
+mod_stats <- varcounts_all %>%
+  group_by(species) %>%
+  summarise(
+    method = t.test(mod * 1000 / alts ~ time)$method,
+    meandiff = t.test(mod * 1000 / alts ~ time)$estimate[1] - t.test(mod * 1000 / alts ~ time)$estimate[2],
+    conf.low = t.test(mod * 1000 / alts ~ time)$conf.int[1],
+    conf.hi = t.test(mod * 1000 / alts ~ time)$conf.int[2],
+    stat = t.test(mod * 1000 / alts ~ time)$statistic,
+    p.value = t.test(mod * 1000 / alts ~ time)$p.value,
+    meandiff_rel = t.test(mod_hom * 1000 / alts ~ time)$estimate[1] - t.test(mod_hom * 1000 / alts ~ time)$estimate[2],
+    conf.low_rel = t.test(mod_hom * 1000 / alts ~ time)$conf.int[1],
+    conf.hi_rel = t.test(mod_hom * 1000 / alts ~ time)$conf.int[2],
+    stat_rel = t.test(mod_hom * 1000 / alts ~ time)$statistic,
+    p.value_rel = t.test(mod_hom * 1000 / alts ~ time)$p.value
+  )
+
+high_stats <- varcounts_all %>%
+  group_by(species) %>%
+  summarise(
+    method = t.test(high * 1000 / alts ~ time)$method,
+    meandiff = t.test(high * 1000 / alts ~ time)$estimate[1] - t.test(high * 1000 / alts ~ time)$estimate[2],
+    conf.low = t.test(high * 1000 / alts ~ time)$conf.int[1],
+    conf.hi = t.test(high * 1000 / alts ~ time)$conf.int[2],
+    stat = t.test(high * 1000 / alts ~ time)$statistic,
+    p.value = t.test(high * 1000 / alts ~ time)$p.value,
+    meandiff_rel = t.test(high_hom * 1000 / alts ~ time)$estimate[1] - t.test(high_hom * 1000 / alts ~ time)$estimate[2],
+    conf.low_rel = t.test(high_hom * 1000 / alts ~ time)$conf.int[1],
+    conf.hi_rel = t.test(high_hom * 1000 / alts ~ time)$conf.int[2],
+    stat_rel = t.test(high_hom * 1000 / alts ~ time)$statistic,
+    p.value_rel = t.test(high_hom * 1000 / alts ~ time)$p.value
+  )
+
+mod_stats$variants <- "mod"
+high_stats$variants <- "high"
+
+load_stats <- rbind(gerp_stats, mod_stats, high_stats)
+write.table(load_stats,
+  file = "../tables/load_stats.tsv", quote = FALSE,
+  sep = "\t", row.names = FALSE
+)
 ```
 
+We will also generate a plot to illustrate how long runs of homozygosity are per
+individual in *C. semiargus*.
 ```{r}
 #| label: fig-csemiargus-roh
 
-rohs <- read.table("../angsd/results/datasets/historical-csemiargus-notrans/analyses/roh/bcftools/historical-csemiargus-notrans.ilCyaSemi1.1_all_allsites-filts.filtered_mindp6-biallelic.notrans.fmiss0.2.regs.roh")
+rohs <- read.table("../angsd/results/datasets/historical-csemiargus-notrans/analyses/roh/bcftools/historical-csemiargus-notrans.ilCyaSemi1.1_all.dp5_allsites-filts.filtered_mindp4-biallelic.notrans.fmiss0.2.regs.roh")
 
 colnames(rohs) <- c(
   "type", "sample", "chr", "start", "end", "length",
@@ -406,12 +392,19 @@ colnames(rohs) <- c(
 
 rohs <- rohs[rohs$length >= 100000 & rohs$phred >= 85, ]
 
+nroh <- rohs %>%
+  group_by(sample) %>%
+  summarise(cumroh = sum(length), nroh = n())
+
 inds <- read.table(
   "../angsd/results/datasets/historical-csemiargus-notrans/poplists/historical-csemiargus-notrans_all.indiv.list",
   header = TRUE
 )
 
 inds <- inds[inds$sample != "MZLU152765", ]
+
+nroh <- merge(inds, nroh, by = "sample", all = TRUE)
+nroh[is.na(nroh)] <- 0
 
 norun <- c()
 norun$type <- rep("RG", nrow(inds))
@@ -423,8 +416,6 @@ norun$length <- rep(0, nrow(inds))
 norun$inform_sites <- rep(0, nrow(inds))
 norun$phred <- rep(0, nrow(inds))
 norun <- data.frame(norun)
-
-# generations <- c(1, 20, 40, 80, 100, 100000000)
 
 autosize <- 416794061
 
@@ -465,8 +456,8 @@ popord <- c(
 )
 
 poplab <- c(
-  "W Skåne\n1951", "E Skåne\n1956", "N Småland\n1936", "W Skåne\n2021",
-  "E Skåne\n2021", "SE Skåne\n2022", "N Småland\n2021"
+  "W Skåne\n1951", "E Skåne\n1956", "Småland\n1936", "W Skåne\n2021",
+  "E Skåne\n2021", "SE Skåne\n2022", "Småland\n2021"
 )
 
 frohs$population <- factor(frohs$population, levels = popord, labels = poplab)
@@ -486,7 +477,7 @@ frohplot <- ggplot(
   theme_bw() +
   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.35)) +
   scale_alpha_discrete(range = c(1, 0.4)) +
-  labs(y = "*F~RoH~* (*C. semiargus*)", alpha = "*RoH* size (Mb)") +
+  labs(y = "*F~RoH~* (*Cy. semiargus*)", alpha = "*RoH* size (Mb)") +
   theme(
     legend.position = "bottom",
     strip.background = element_blank(),
@@ -497,9 +488,45 @@ frohplot <- ggplot(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
   )
+
+nroh <- nroh[nroh$time == "modern", ]
+
+popmeans <- nroh %>%
+  group_by(population) %>%
+  summarize(
+    nroh = mean(nroh),
+    cumroh = mean(cumroh)
+  )
+
+
+ggplot(nroh, aes(x = cumroh, y = nroh)) +
+  geom_point(aes(
+    color = population,
+    shape = population
+  ), alpha = 0.6) +
+  geom_point(
+    data = popmeans,
+    aes(x = cumroh, y = nroh, size = 3, color = population, shape = population)
+  ) +
+  scale_color_manual(
+    values = c("#658399", "#8A2A3B", "#658399", "#244F6E")
+  ) +
+  scale_shape_manual(
+    values = c(15:18)
+  ) +
+  guides(size = "none") +
+  ylab("Total RoH Count") +
+  xlab("Cumulative length of RoHs (bp)") +
+  theme_classic() +
+  theme(
+    aspect.ratio = 1
+  )
+
+ggsave("../figures/suppfig-nrohs.png", dpi = 600, create.dir = TRUE)
 ```
 
-
+Then combine this inbreeding coefficient figure of *C. semiargus* with the
+figures depicting genetic load.
 ```{r}
 #| label: fig-load
 #| fig-height: 8
@@ -507,83 +534,62 @@ frohplot <- ggplot(
 
 gerp_clean <- gerp +
   ggtitle("Total Genetic Load") +
-  # ylab("Conserved Regions") +
   theme(
     plot.margin = unit(c(5.5, 5.5, 3, 5.5), "pt"),
-    # legend.position = "bottom",
-    # strip.background = element_blank(),
+    legend.position = "none",
     axis.title.y = element_text(size = 10),
-    # legend.title = element_markdown(),
     axis.text.x = element_blank(),
     strip.background = element_blank()
   )
 
 high_clean <- high +
-  # ylab("High Impact") +
   theme(
     plot.margin = unit(c(3, 5.5, 3, 5.5), "pt"),
-    # legend.position = "bottom",
+    legend.position = "none",
     strip = element_blank(),
-    # axis.text.x = element_blank(),
     axis.title.y = element_text(size = 10),
-    # legend.title = element_markdown(),
     axis.text.x = element_blank(),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
 
 mod_clean <- mod +
-  # ylab("Moderate Impact") +
   theme(
     plot.margin = unit(c(3, 5.5, 5.5, 5.5), "pt"),
-    # legend.position = "bottom",
+    legend.position = "none",
     strip = element_blank(),
-    # axis.text.x = element_blank(),
     axis.title.y = element_text(size = 10),
-    # legend.title = element_markdown(),
-    # axis.text.x = element_text(),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
 
 gerp_hom_clean <- gerp_hom +
   ggtitle("Realized Genetic Load") +
-  # ylab("Conserved Regions") +
   theme(
     plot.margin = unit(c(5.5, 5.5, 3, 5.5), "pt"),
-    # legend.position = "bottom",
-    # strip.background = element_blank(),
+    legend.position = "none",
     axis.title.y = element_text(size = 10),
-    # legend.title = element_markdown(),
     axis.text.x = element_blank(),
     strip.background = element_blank()
   )
 
 high_hom_clean <- high_hom +
-  # ylab("High Impact") +
   theme(
     plot.margin = unit(c(3, 5.5, 3, 5.5), "pt"),
-    # legend.position = "bottom",
+    legend.position = "none",
     strip = element_blank(),
-    # axis.text.x = element_blank(),
     axis.title.y = element_text(size = 10),
-    # legend.title = element_markdown(),
     axis.text.x = element_blank(),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
 
 mod_hom_clean <- mod_hom +
-  # ylab("Moderate Impact") +
   theme(
     plot.margin = unit(c(3, 5.5, 5.5, 5.5), "pt"),
-    # plot.margin = unit(c(-10, 0.5, 0, 0.5), "cm"),
-    # legend.position = "bottom",
+    legend.position = "none",
     strip = element_blank(),
-    # axis.text.x = element_blank(),
     axis.title.y = element_text(size = 10),
-    # legend.title = element_markdown(),
-    # axis.text.x = element_text(),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
@@ -594,7 +600,8 @@ total_load <- plot_grid(
   mod_clean,
   rel_heights = c(1.2, 0.9, 1),
   ncol = 1,
-  align = "v")
+  align = "v"
+)
 
 real_load <- plot_grid(
   gerp_hom_clean,
@@ -602,24 +609,42 @@ real_load <- plot_grid(
   mod_hom_clean,
   rel_heights = c(1.2, 0.9, 1),
   ncol = 1,
-  align = "v")
+  align = "v"
+)
 
 load <- plot_grid(total_load, real_load, ncol = 2, labels = c("B", "C"))
 
-plot_grid(frohplot, load,
+legend_inb <- get_plot_component(
+  gerp +
+    labs(color = "*F~RoH~*") +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_markdown(),
+      legend.key.width = unit(2, "cm")
+    ),
+  "guide-box",
+  return_all = TRUE
+)[[3]]
+
+plot_grid(frohplot, load, legend_inb,
   ncol = 1,
-  rel_heights = c(0.4, 0.7),
-  labels = c("A", ""))
+  rel_heights = c(0.4, 0.7, 0.1),
+  labels = c("A", "", "")
+)
 
 ggsave("../figures/fig-load.png", dpi = 600, create.dir = TRUE)
 ```
+
+Finally, for the supplement, we can illustrate how realized load, but not total
+load is correlated with inbreeding coefficient using a linear model.
+
 ```{r}
 #| label: fig-inbrload
 #| fig-width: 8
 #| fig-height: 3
 
-gerp_csemi <- gerp_all[gerp_all$species == "C. semiargus" & gerp_all$time == "Modern", ]
-var_csemi <- varcounts_all[varcounts_all$species == "C. semiargus" & varcounts_all$time == "Modern", ]
+gerp_csemi <- gerp_all[gerp_all$species == "Cy. semiargus" & gerp_all$time == "Modern", ]
+var_csemi <- varcounts_all[varcounts_all$species == "Cy. semiargus" & varcounts_all$time == "Modern", ]
 
 gerpreg <- ggplot(gerp_csemi, aes(x = Froh, y = relload)) +
   ggtitle("Conserved Regions") +
@@ -629,11 +654,13 @@ gerpreg <- ggplot(gerp_csemi, aes(x = Froh, y = relload)) +
   geom_smooth(aes(y = relload_hom), method = "lm", color = "blue") +
   ylab("Genetic Load") +
   xlab("Inbreeding Coefficient (*F~RoH~*)") +
-  stat_cor(color = "red", label.y = 0.2) +
-  stat_cor(aes(y = relload_hom), color = "blue", label.y = 0.13) +
+  stat_cor(color = "red", label.y = 0.4) +
+  stat_cor(aes(y = relload_hom), color = "blue", label.y = 0.33) +
   theme_classic() +
-  theme(axis.title.x = element_markdown(),
-    legend.position = "none")
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
 
 highreg <- ggplot(var_csemi, aes(x = Froh, y = high / alts)) +
   ggtitle("High Impact") +
@@ -646,8 +673,10 @@ highreg <- ggplot(var_csemi, aes(x = Froh, y = high / alts)) +
   stat_cor(color = "red", label.y = 0.0011) +
   stat_cor(aes(y = high_hom / alts), label.y = 0, color = "blue") +
   theme_classic() +
-  theme(axis.title.x = element_markdown(),
-    legend.position = "none")
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
 
 modreg <- ggplot(var_csemi, aes(x = Froh, y = mod / alts)) +
   ggtitle("Moderate Impact") +
@@ -660,8 +689,10 @@ modreg <- ggplot(var_csemi, aes(x = Froh, y = mod / alts)) +
   stat_cor(color = "red", label.y = 0.05) +
   stat_cor(aes(y = mod_hom / alts), label.y = 0, color = "blue") +
   theme_classic() +
-  theme(axis.title.x = element_markdown(),
-    legend.position = "none")
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
 
 plot_grid(gerpreg, highreg, modreg, ncol = 3)
 ggsave("../figures/suppfig-inbreg.png", dpi = 600, create.dir = TRUE)
