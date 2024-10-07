@@ -151,7 +151,7 @@ rule bcftools_merge_all:
     conda:
         "../envs/bcftools.yaml"
     params:
-        merge=lambda w, input: "view" if len(input) == 1 else "merge"
+        merge=lambda w, input: "view" if len(input) == 1 else "merge",
     threads: 2
     resources:
         runtime=720,
