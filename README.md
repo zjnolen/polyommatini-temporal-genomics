@@ -1,9 +1,14 @@
-# Polyommatini museum manuscript
+# Species-specific loss of genetic diversity and accumulation of genetic load following agricultural intensification
 
-This project looks at how genetic diversity has changed over time in three
-species of Polyommatini butterflies, as well as a small look at a few others.
-Inside this project folder is all the main working files for the data analysis
-as well as the manuscript.
+Zachary J. Nolen, Patrycja Jamelska, Ana Sofia Torres Lara, Niklas Wahlberg,
+Anna Runemark
+
+This repository contains the code and resources used for our study examining the
+changes in genetic diversity, differentiation, inbreeding, and genetic load in
+three species of Polyommatini butterflies in southern Sweden. To do this, we
+compared genomic data from museum specimens of these species to modern
+specimens, capturing a decline in genetic diversity over the past century in a
+landscape characterized by agricultural intensification.
 
 ## Data Analyses
 
@@ -24,7 +29,8 @@ for a reference with Snakemake, using the `--configfile` option, as shown:
 
 ```bash
 git clone https://github.com/NBISweden/GenErode
-cd GenErode
+mv GenErode generode-<species>
+cd generode-<species>
 git checkout v0.6.0
 snakemake --configfile ../config/generode_<reference_id>.yaml
 ```
@@ -38,11 +44,14 @@ cd angsd
 snakemake --configfile ../config/config_<species>.yaml
 ```
 
-These produce the main results files for the manuscript.
+These produce the main results files for the manuscript. A subset of these
+outputs will be included in this repository for visualization purposes, size
+permitting.
 
 ## Manuscript and Figures
 
 The manuscript and figures were made using Quarto, primarily with R for the
 figures. [`environment.yaml`](environment.yaml) is the conda environment needed
-to compile the document. Notebooks for figures are stored in
-[notebooks](notebooks), with the main manuscript as [`index.html`](index.html).
+to compile the document. If Quarto is not already installed on the machine, it
+can be addded to the `environment.yaml` file. Notebooks for figures are stored
+in [notebooks](notebooks).
