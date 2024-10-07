@@ -10,9 +10,9 @@ generode
 reports
 logs
 .backup_files
-commented_versions
 misc
-
+writing
+sync.err
 
 # Ignore only for now until determining what needs to be included
 index.qmd
