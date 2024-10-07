@@ -6,7 +6,7 @@ min_version("7.32.0")
 
 module angsd:
     snakefile:
-        "https://raw.githubusercontent.com/zjnolen/PopGLen/3c9453198b0a3f5ee08ddfc0df62ef2dff95b6bb/workflow/Snakefile"
+        github("zjnolen/PopGLen", path="workflow/Snakefile", tag="v0.3.0")
     config:
         config
 
@@ -41,8 +41,8 @@ if config["vep"]:
         expand(
             "results/datasets/{{dataset}}/analyses/vep/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.varimpacts.tsv",
             zip,
-            dp=["", ".dp5"],
-            mindp=[6, 4],
+            dp=[".dp5"],
+            mindp=[4],
         )
     )
 
@@ -51,8 +51,8 @@ if config["bcftools_roh"]:
         expand(
             "results/datasets/{{dataset}}/plots/inbreeding/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.bcftools.froh_bins.svg",
             zip,
-            dp=["", ".dp5"],
-            mindp=[6, 4],
+            dp=[".dp5"],
+            mindp=[4],
         )
     )
 
@@ -61,8 +61,8 @@ if config["gerp_rel_load"]:
         expand(
             "results/datasets/{{dataset}}/analyses/gerp/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.relative-load-gerp.csv",
             zip,
-            dp=["", ".dp5"],
-            mindp=[6, 4],
+            dp=[".dp5"],
+            mindp=[4],
         )
     )
 
@@ -73,7 +73,7 @@ if config["downsample_thetas"]:
                 "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_all{dp}.downsampled_{{sites}}-filts.thetaMean.{win}_{step}.tsv",
                 "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_modern-historical{dp}.N4_{{sites}}-filts.wilcoxon.tsv",
             ],
-            dp=[".dp2", ".dp3"],
+            dp=[".dp3"],
             win=config["params"]["thetas"]["win_size"],
             step=config["params"]["thetas"]["win_step"],
         )
