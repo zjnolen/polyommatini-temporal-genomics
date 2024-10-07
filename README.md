@@ -10,6 +10,9 @@ compared genomic data from museum specimens of these species to modern
 specimens, capturing a decline in genetic diversity over the past century in a
 landscape characterized by agricultural intensification.
 
+![Figure 1 from the manuscript, depicting genetic diversity decline and
+inbreeding and genetic differentiation increases](figures/fig-diversity.png)
+
 ## Data Analyses
 
 For the data analysis, the analyses are performed primarily using Snakemake,
