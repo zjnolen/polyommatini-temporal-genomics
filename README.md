@@ -3,6 +3,8 @@
 Zachary J. Nolen, Patrycja Jamelska, Ana Sofia Torres Lara, Niklas Wahlberg,
 Anna Runemark
 
+[![Repo DOI](https://img.shields.io/badge/Repository_DOI-10.5281/zenodo.13902816-blue)](https://doi.org/10.5281/zenodo.13902816)
+
 This repository contains the code and resources used for our study examining the
 changes in genetic diversity, differentiation, inbreeding, and genetic load in
 three species of Polyommatini butterflies in southern Sweden. To do this, we
