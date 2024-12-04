@@ -122,7 +122,7 @@ gerp <- ggplot(gerp_all, aes(x = time, y = relload * 1000)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  ylab("Conserved Regions") +
+  ylab("Relative derived allele<br>count (conserved pos)") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
@@ -141,7 +141,6 @@ gerp_hom <- ggplot(gerp_all, aes(x = time, y = relload_hom * 1000)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  ylab("Conserved Regions") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
@@ -160,11 +159,15 @@ gerp_stats <- gerp_all %>%
   group_by(species) %>%
   summarise(
     method = t.test(relload * 1000 ~ time)$method,
+    meanmod = t.test(relload * 1000 ~ time)$estimate[1],
+    meanhist = t.test(relload * 1000 ~ time)$estimate[2],
     meandiff = t.test(relload * 1000 ~ time)$estimate[1] - t.test(relload * 1000 ~ time)$estimate[2],
     conf.low = t.test(relload * 1000 ~ time)$conf.int[1],
     conf.hi = t.test(relload * 1000 ~ time)$conf.int[2],
     stat = t.test(relload * 1000 ~ time)$statistic,
     p.value = t.test(relload * 1000 ~ time)$p.value,
+    meanmod_rel = t.test(relload_hom * 1000 ~ time)$estimate[1],
+    meanhist_rel = t.test(relload_hom * 1000 ~ time)$estimate[2],
     meandiff_rel = t.test(relload_hom * 1000 ~ time)$estimate[1] - t.test(relload_hom * 1000 ~ time)$estimate[2],
     conf.low_rel = t.test(relload_hom * 1000 ~ time)$conf.int[1],
     conf.hi_rel = t.test(relload_hom * 1000 ~ time)$conf.int[2],
@@ -264,7 +267,7 @@ high <- ggplot(varcounts_all, aes(x = time, y = high * 1000 / alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  ylab("High Impact") +
+  ylab("Relative LoF<br>allele count") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
@@ -283,13 +286,13 @@ high_hom <- ggplot(varcounts_all, aes(x = time, y = high_hom * 1000 / alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  ylab("High Impact") +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
+  ylim(c(0.13, 0.5)) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
+    axis.title.y = element_blank(),
     axis.title.x = element_blank(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
@@ -302,7 +305,7 @@ mod <- ggplot(varcounts_all, aes(x = time, y = mod * 1000 / alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  ylab("Moderate Impact") +
+  ylab("Relative missense<br>allele count") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
@@ -321,13 +324,13 @@ mod_hom <- ggplot(varcounts_all, aes(x = time, y = mod_hom * 1000 / alts)) +
     position = position_jitterdodge(jitter.width = 0.05)
   ) +
   scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
-  ylab("Moderate Impact") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
   geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
   theme_bw() +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
+    axis.title.y = element_blank(),
     axis.title.x = element_blank(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
@@ -340,11 +343,15 @@ mod_stats <- varcounts_all %>%
   group_by(species) %>%
   summarise(
     method = t.test(mod * 1000 / alts ~ time)$method,
+    meanmod = t.test(mod * 1000 / alts ~ time)$estimate[1],
+    meanhist = t.test(mod * 1000 / alts ~ time)$estimate[2],
     meandiff = t.test(mod * 1000 / alts ~ time)$estimate[1] - t.test(mod * 1000 / alts ~ time)$estimate[2],
     conf.low = t.test(mod * 1000 / alts ~ time)$conf.int[1],
     conf.hi = t.test(mod * 1000 / alts ~ time)$conf.int[2],
     stat = t.test(mod * 1000 / alts ~ time)$statistic,
     p.value = t.test(mod * 1000 / alts ~ time)$p.value,
+    meanmod_rel = t.test(mod_hom * 1000 / alts ~ time)$estimate[1],
+    meanhist_rel = t.test(mod_hom * 1000 / alts ~ time)$estimate[2],
     meandiff_rel = t.test(mod_hom * 1000 / alts ~ time)$estimate[1] - t.test(mod_hom * 1000 / alts ~ time)$estimate[2],
     conf.low_rel = t.test(mod_hom * 1000 / alts ~ time)$conf.int[1],
     conf.hi_rel = t.test(mod_hom * 1000 / alts ~ time)$conf.int[2],
@@ -356,11 +363,15 @@ high_stats <- varcounts_all %>%
   group_by(species) %>%
   summarise(
     method = t.test(high * 1000 / alts ~ time)$method,
+    meanmod = t.test(high * 1000 / alts ~ time)$estimate[1],
+    meanhist = t.test(high * 1000 / alts ~ time)$estimate[2],
     meandiff = t.test(high * 1000 / alts ~ time)$estimate[1] - t.test(high * 1000 / alts ~ time)$estimate[2],
     conf.low = t.test(high * 1000 / alts ~ time)$conf.int[1],
     conf.hi = t.test(high * 1000 / alts ~ time)$conf.int[2],
     stat = t.test(high * 1000 / alts ~ time)$statistic,
     p.value = t.test(high * 1000 / alts ~ time)$p.value,
+    meanmod_rel = t.test(high_hom * 1000 / alts ~ time)$estimate[1],
+    meanhist_rel = t.test(high_hom * 1000 / alts ~ time)$estimate[2],
     meandiff_rel = t.test(high_hom * 1000 / alts ~ time)$estimate[1] - t.test(high_hom * 1000 / alts ~ time)$estimate[2],
     conf.low_rel = t.test(high_hom * 1000 / alts ~ time)$conf.int[1],
     conf.hi_rel = t.test(high_hom * 1000 / alts ~ time)$conf.int[2],
@@ -532,12 +543,12 @@ figures depicting genetic load.
 #| fig-height: 8
 #| fig-width: 8
 
-gerp_clean <- gerp +
-  ggtitle("Total Genetic Load") +
+mod_clean <- mod +
+  ggtitle("Total Deleterious Burden") +
   theme(
     plot.margin = unit(c(5.5, 5.5, 3, 5.5), "pt"),
     legend.position = "none",
-    axis.title.y = element_text(size = 10),
+    axis.title.y = element_markdown(size = 8),
     axis.text.x = element_blank(),
     strip.background = element_blank()
   )
@@ -547,28 +558,28 @@ high_clean <- high +
     plot.margin = unit(c(3, 5.5, 3, 5.5), "pt"),
     legend.position = "none",
     strip = element_blank(),
-    axis.title.y = element_text(size = 10),
+    axis.title.y = element_markdown(size = 8),
     axis.text.x = element_blank(),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
 
-mod_clean <- mod +
+gerp_clean <- gerp +
   theme(
     plot.margin = unit(c(3, 5.5, 5.5, 5.5), "pt"),
     legend.position = "none",
     strip = element_blank(),
-    axis.title.y = element_text(size = 10),
+    axis.title.y = element_markdown(size = 8),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
 
-gerp_hom_clean <- gerp_hom +
-  ggtitle("Realized Genetic Load") +
+mod_hom_clean <- mod_hom +
+  ggtitle("Homozygous Deleterious Burden") +
   theme(
     plot.margin = unit(c(5.5, 5.5, 3, 5.5), "pt"),
     legend.position = "none",
-    axis.title.y = element_text(size = 10),
+    axis.title.y = element_blank(),
     axis.text.x = element_blank(),
     strip.background = element_blank()
   )
@@ -578,41 +589,41 @@ high_hom_clean <- high_hom +
     plot.margin = unit(c(3, 5.5, 3, 5.5), "pt"),
     legend.position = "none",
     strip = element_blank(),
-    axis.title.y = element_text(size = 10),
+    axis.title.y = element_blank(),
     axis.text.x = element_blank(),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
 
-mod_hom_clean <- mod_hom +
+gerp_hom_clean <- gerp_hom +
   theme(
     plot.margin = unit(c(3, 5.5, 5.5, 5.5), "pt"),
     legend.position = "none",
     strip = element_blank(),
-    axis.title.y = element_text(size = 10),
+    axis.title.y = element_blank(),
     strip.text.x = element_blank(),
     strip.background = element_blank()
   )
 
 total_load <- plot_grid(
-  gerp_clean,
-  high_clean,
   mod_clean,
+  high_clean,
+  gerp_clean,
   rel_heights = c(1.2, 0.9, 1),
   ncol = 1,
   align = "v"
 )
 
 real_load <- plot_grid(
-  gerp_hom_clean,
-  high_hom_clean,
   mod_hom_clean,
+  high_hom_clean,
+  gerp_hom_clean,
   rel_heights = c(1.2, 0.9, 1),
   ncol = 1,
   align = "v"
 )
 
-load <- plot_grid(total_load, real_load, ncol = 2, labels = c("B", "C"))
+load <- plot_grid(total_load, real_load, ncol = 2, labels = c("B", "C"), rel_widths = c(1.1, 1))
 
 legend_inb <- get_plot_component(
   gerp +
@@ -652,7 +663,7 @@ gerpreg <- ggplot(gerp_csemi, aes(x = Froh, y = relload)) +
   geom_point(aes(y = relload_hom), color = "blue") +
   geom_smooth(method = "lm", color = "red") +
   geom_smooth(aes(y = relload_hom), method = "lm", color = "blue") +
-  ylab("Genetic Load") +
+  ylab("Relative count deleterious mutations") +
   xlab("Inbreeding Coefficient (*F~RoH~*)") +
   stat_cor(color = "red", label.y = 0.4) +
   stat_cor(aes(y = relload_hom), color = "blue", label.y = 0.33) +
@@ -668,7 +679,7 @@ highreg <- ggplot(var_csemi, aes(x = Froh, y = high / alts)) +
   geom_point(aes(y = high_hom / alts), color = "blue") +
   geom_smooth(method = "lm", color = "red") +
   geom_smooth(aes(y = high_hom / alts), method = "lm", color = "blue") +
-  ylab("Genetic Load") +
+  ylab("Relative count deleterious mutations") +
   xlab("Inbreeding Coefficient (*F~RoH~*)") +
   stat_cor(color = "red", label.y = 0.0011) +
   stat_cor(aes(y = high_hom / alts), label.y = 0, color = "blue") +
@@ -684,7 +695,7 @@ modreg <- ggplot(var_csemi, aes(x = Froh, y = mod / alts)) +
   geom_point(aes(y = mod_hom / alts), color = "blue") +
   geom_smooth(method = "lm", color = "red") +
   geom_smooth(aes(y = mod_hom / alts), method = "lm", color = "blue") +
-  ylab("Genetic Load") +
+  ylab("Relative count deleterious mutations") +
   xlab("Inbreeding Coefficient (*F~RoH~*)") +
   stat_cor(color = "red", label.y = 0.05) +
   stat_cor(aes(y = mod_hom / alts), label.y = 0, color = "blue") +
