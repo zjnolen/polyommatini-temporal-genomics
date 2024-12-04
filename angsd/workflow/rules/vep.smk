@@ -58,9 +58,7 @@ rule calc_vep_load:
         pops="results/datasets/{dataset}/poplists/{dataset}_all.indiv.list",
     output:
         varcounts="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.varimpacts.tsv",
-        varcounts_boots="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.varimpacts_boots.tsv",
-        varcounts_nomiss="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic.{trans}.fmiss{miss}.varimpacts_nomiss.tsv",
-    threads: lambda w, attempt: 2 * attempt
+    threads: 8
     conda:
         "../envs/r.yaml"
     resources:

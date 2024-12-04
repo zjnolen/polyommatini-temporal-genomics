@@ -21,6 +21,9 @@ include: "rules/vep.smk"
 include: "rules/theta_downsampling.smk"
 
 
+# include: "rules/gone.smk"
+
+
 wildcard_constraints:
     ref=config["reference"]["name"],
     dp=".{0}|.dp[1-9][0-9]*",
@@ -40,7 +43,6 @@ if config["vep"]:
     all_outputs.extend(
         expand(
             "results/datasets/{{dataset}}/analyses/vep/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.varimpacts.tsv",
-            zip,
             dp=[".dp5"],
             mindp=[4],
         )
@@ -50,7 +52,6 @@ if config["bcftools_roh"]:
     all_outputs.extend(
         expand(
             "results/datasets/{{dataset}}/plots/inbreeding/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.bcftools.froh_bins.svg",
-            zip,
             dp=[".dp5"],
             mindp=[4],
         )
@@ -60,7 +61,6 @@ if config["gerp_rel_load"]:
     all_outputs.extend(
         expand(
             "results/datasets/{{dataset}}/analyses/gerp/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.relative-load-gerp.csv",
-            zip,
             dp=[".dp5"],
             mindp=[4],
         )
