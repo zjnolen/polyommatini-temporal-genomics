@@ -1,35 +1,33 @@
 # Project specific configs (outside PopGLen pipeline)
-
-recrate: "3.03e-8"
-gff: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/museum-manuscript/resources/gffs/Plebejus_argus-GCA_905404155.1-2021_11-genes.gff3.gz"
+GONE_input_params: "../config/GONE_input_params_picarus"
+recrate: "2.33e-8"
+gff: "../resources/gffs/Polyommatus_icarus-GCA_937595015.1-2022_06-genes.gff3.gz"
 bcf_trans: "notrans"
-bcf_missing: "0.2"
+bcf_missing: "0.4"
+calling_drop: ["MZLULEP1730","MZLULEP1748", "MZLULEP1824", "MZLULEP1868", "MZLULEP1911", "MZLULEP3026", "MZLULEP3133", "MZLULEP3259","MZLULEP3661", "MZLULEP3668", "MZLULEP4316", "MZLULEP4555"]
+call_heterozygosity: true
+pixy: true
 bcftools_roh: true
 min_phred_roh: 30
-vep: true
-calling_drop: ["MZLU153045", "MZLU153040"]
-gerp_rel_load: true
-gerp_scores: "../generode-pargus/results/gerp/GCA_905404155.3_ilPleArgu1.3_genomic.genome.ancestral.rates.gz"
-lower_gerp_thresh: 0.224999
-downsample_thetas: true
-downsample_sizes: [4]
-downsample_reps: [100]
+burden: true
+gerp_scores: "../generode-picarus-lyc-100/results/gerp/GCA_937595015.1_ilPolIcar1.1_genomic.genome.ancestral.rates.gz"
+lower_gerp_thresh: 0.357826
 
 #=====================Dataset Configuration============================#
 
-samples: ../config/samples_pargus.tsv
+samples: ../config/samples_picarus.tsv
 
-units: ../config/units.tsv
+units: ../config/units-vgmap.tsv
 
-dataset: "historical-pargus-notrans"
+dataset: "historical-picarus-vg-notrans"
 
 #===================== Reference Configuration ========================#
 
-chunk_size: 30000000
+chunk_size: 40000000
 
 reference:
-  name: "ilPleArgu1.3"
-  fasta: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/museum-manuscript/resources/ref/GCA_905404155.3_ilPleArgu1.3_genomic.fna"
+  name: "ilPolIcar1.1"
+  fasta: "../resources/ref/GCA_937595015.1_ilPolIcar1.1_genomic.fna"
   mito: ["mitochondrion"]
   sex-linked: ["Z"]
   exclude: []
@@ -41,9 +39,8 @@ ancestral:
 
 exclude_ind: []
 
-excl_pca-admix: ["MZLU107435"]
-
-#"MZLU153003", "MZLU152940"
+excl_pca-admix: ["PI031"]
+# rels in removed pops: POIC0924
 
 #====================== Analysis Selection ============================#
 
@@ -57,7 +54,7 @@ analyses:
   # filtering
   pileup-mappability: false
   repeatmasker:
-    bed: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/landuse-manuscript/results/ref/ilPleArgu1.3/repeatmasker/ilPleArgu1.3.fa.out.bed"
+    bed: "../resources/repbeds/GCA_937595015.1_ilPolIcar1.1_ensembl_softmasked_reps.bed"
     local_lib:
     dfam_lib:
     build_lib:
@@ -71,28 +68,30 @@ analyses:
   mapdamage_rescale: false
   # population genomic analyses
   estimate_ld: false
-  ld_decay: true
-  pca_pcangsd: true
-  admix_ngsadmix: true
-  relatedness: 
-    ngsrelate: true
+  ld_decay: false
+  pca_pcangsd: false
+  admix_ngsadmix: false
+  relatedness:
     ibsrelate_ibs: false
     ibsrelate_sfs: false
+    ngsrelate_ibsrelate-only: false
+    ngsrelate_freqbased: false
   1dsfs: false
   1dsfs_boot: false
   2dsfs: false
   2dsfs_boot: false
-  thetas_angsd: true
-  heterozygosity_angsd: true
+  thetas_angsd: false
+  heterozygosity_angsd: false
   fst_angsd:
-    populations: true
+    populations: false
     individuals: false
   inbreeding_ngsf-hmm: false
   ibs_matrix: false
+  pop_allele_freqs: false
 
 #==================== Downsampling Configuration ======================#
 
-subsample_dp: [2, 3, 4]
+subsample_dp: [8]
 
 subsample_by: "sitefilt"
 redo_depth_filts: false
@@ -101,23 +100,25 @@ drop_samples: []
 subsample_analyses:
   estimate_ld: false
   ld_decay: false
-  pca_pcangsd: false
-  admix_ngsadmix: false
-  relatedness: 
-    ngsrelate: false
+  pca_pcangsd: true
+  admix_ngsadmix: true
+  relatedness:
     ibsrelate_ibs: false
     ibsrelate_sfs: false
+    ngsrelate_ibsrelate-only: true
+    ngsrelate_freqbased: false
   1dsfs: false
   1dsfs_boot: false
   2dsfs: false
   2dsfs_boot: false
   thetas_angsd: false
-  heterozygosity_angsd: true
+  heterozygosity_angsd: false
   fst_angsd:
     populations: false
     individuals: false
   inbreeding_ngsf-hmm: false
   ibs_matrix: false
+  pop_allele_freqs: false
 
 #=========================== Filter Sets ==============================#
 
@@ -144,12 +145,13 @@ params:
     filt-on-dataset: true
     filt-on-depth-classes: true
   fastp:
-    extra: "-p -g" # don't put --merge or --overlap_len_require here, they're implicit
+    merged_extra: "-p -g" # don't put --merge or --overlap_len_require here, they're implicit
+    paired_extra: "-p -g"
     min_overlap_hist: 30
   bwa_aln:
     extra: "-l 16500 -n 0.01 -o 2"
   samtools:
-    subsampling_seed: "$RANDOM"
+    subsampling_seed: "0"
   picard:
     MarkDuplicates: "--REMOVE_DUPLICATES true --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500"
   damageprofiler:
@@ -157,11 +159,11 @@ params:
   angsd:
     gl_model: 2 # gl_model - 1=SAMtools, 2=GATK, 3=SOAPsnp, 4=SYK
     maxdepth: 500
-    mindepthind: 1
-    minind_dataset: 0.8 # as a proportion of N
+    mindepthind: 3
+    minind_dataset: 0.9 # as a proportion of N
     minind_pop: 0.8 # as a proportion of N
     rmtrans: true
-    extra: ""
+    extra: "-uniqueOnly 1"
     extra_saf: ""
     extra_beagle: ""
     domajorminor: 1 # Currently only compatible with values 1, 2, 4, 5
@@ -169,10 +171,6 @@ params:
     snp_pval: "1e-6"
     min_maf: 0.05 # Set -1 to disable
     mindepthind_heterozygosity: 1
-    doancerror: 2
-    ancerror_outgroup_fasta:
-    ancerror_error_free_ind:
-    ancerror_filter: false
   ngsrelate:
     prune: false
   ngsld:
@@ -192,8 +190,8 @@ params:
     min_roh_length: 100000
     roh_bins: [ 250000, 500000, 1000000, 2500000, 5000000 ] # in ascending order, bins are between adjacent values and between min_roh_length and value 1 and the last value and infinity
   realsfs:
-    fold: 1 # Should only be set to 1, unless ancestral reference is given above
-    sfsboot: 300
+    fold: 0 # Should only be set to 1, unless ancestral reference is given above
+    sfsboot: 1
   fst:
     whichFst: 1
     win_size: 10000
@@ -203,11 +201,11 @@ params:
     win_step: 5000
     minsites: 1000
   ngsadmix:
-    kvalues: [1,2,3,4,5,6,7,8,9,10]
+    kvalues: [1,2,3,4,5,6,7,8]
     reps: 100
     minreps: 20
-    thresh:
-    conv:
+    thresh: 2
+    conv: 3
     extra: "-maxiter 4000"
   ibs:
     doibs: 1

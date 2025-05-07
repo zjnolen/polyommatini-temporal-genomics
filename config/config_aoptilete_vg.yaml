@@ -1,36 +1,33 @@
 # Project specific configs (outside PopGLen pipeline)
-
-recrate: "2.56e-8"
-gff: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/museum-manuscript/resources/gffs/Cyaniris_semiargus-GCA_905187585.1-2021_12-genes.gff3.gz"
+GONE_input_params: ""
+recrate: "1.89e-8"
+gff: ""
 bcf_trans: "notrans"
-bcf_missing: "0.2"
-bcf_subsample_dp: "5"
-calling_drop: ["MZLU166854"]
+bcf_missing: "0.4"
+calling_drop: []
+call_heterozygosity: true
+pixy: false
 bcftools_roh: true
 min_phred_roh: 30
-vep: false
-gerp_rel_load: false
+burden: false
 gerp_scores: ""
-lower_gerp_thresh: ""
-downsample_thetas: false
-downsample_sizes: [4]
-downsample_reps: [100]
+lower_gerp_thresh: 0
 
 #=====================Dataset Configuration============================#
 
-samples: ../config/samples_cargiolus.tsv
+samples: ../config/samples_aoptilete.tsv
 
-units: ../config/units.tsv
+units: ../config/units-vgmap.tsv
 
-dataset: "historical-cargiolus"
+dataset: "historical-aoptilete-vg"
 
 #===================== Reference Configuration ========================#
 
-chunk_size: 30000000
+chunk_size: 41000000
 
 reference:
-  name: "ilCelArgi3.2"
-  fasta: "/crex/proj/polyommatini2/nobackup/polyommatini/working/zach/museum-manuscript/resources/ref/GCA_905187575.2_ilCelArgi3.2_genomic.fna"
+  name: "ilAgrOpti3.hap1.1"
+  fasta: "../resources/ref/GCA_964273475.1_ilAgrOpti3.hap1.1_genomic.fna"
   mito: ["mitochondrion"]
   sex-linked: ["Z", "W"]
   exclude: []
@@ -64,7 +61,7 @@ analyses:
   dataset_missing_data:
   population_missing_data:
   # quality control
-  qualimap: true
+  qualimap: false
   ibs_ref_bias: true
   damageprofiler: true
   mapdamage_rescale: false
@@ -73,25 +70,27 @@ analyses:
   ld_decay: false
   pca_pcangsd: false
   admix_ngsadmix: false
-  relatedness: 
-    ngsrelate: false
+  relatedness:
     ibsrelate_ibs: false
     ibsrelate_sfs: false
+    ngsrelate_ibsrelate-only: false
+    ngsrelate_freqbased: false
   1dsfs: false
   1dsfs_boot: false
   2dsfs: false
   2dsfs_boot: false
   thetas_angsd: false
-  heterozygosity_angsd: true
+  heterozygosity_angsd: false
   fst_angsd:
     populations: false
     individuals: false
   inbreeding_ngsf-hmm: false
   ibs_matrix: false
+  pop_allele_freqs: false
 
 #==================== Downsampling Configuration ======================#
 
-subsample_dp: [2, 3, 4]
+subsample_dp: []
 
 subsample_by: "sitefilt"
 redo_depth_filts: false
@@ -102,21 +101,23 @@ subsample_analyses:
   ld_decay: false
   pca_pcangsd: false
   admix_ngsadmix: false
-  relatedness: 
-    ngsrelate: false
+  relatedness:
     ibsrelate_ibs: false
     ibsrelate_sfs: false
+    ngsrelate_ibsrelate-only: false
+    ngsrelate_freqbased: false
   1dsfs: false
   1dsfs_boot: false
   2dsfs: false
   2dsfs_boot: false
   thetas_angsd: false
-  heterozygosity_angsd: true
+  heterozygosity_angsd: false
   fst_angsd:
     populations: false
     individuals: false
   inbreeding_ngsf-hmm: false
   ibs_matrix: false
+  pop_allele_freqs: false
 
 #=========================== Filter Sets ==============================#
 
@@ -143,12 +144,13 @@ params:
     filt-on-dataset: true
     filt-on-depth-classes: true
   fastp:
-    extra: "-p -g" # don't put --merge or --overlap_len_require here, they're implicit
+    merged_extra: "-p -g" # don't put --merge or --overlap_len_require here, they're implicit
+    paired_extra: "-p -g"
     min_overlap_hist: 30
   bwa_aln:
     extra: "-l 16500 -n 0.01 -o 2"
   samtools:
-    subsampling_seed: "$RANDOM"
+    subsampling_seed: "0"
   picard:
     MarkDuplicates: "--REMOVE_DUPLICATES true --OPTICAL_DUPLICATE_PIXEL_DISTANCE 2500"
   damageprofiler:
@@ -157,10 +159,10 @@ params:
     gl_model: 2 # gl_model - 1=SAMtools, 2=GATK, 3=SOAPsnp, 4=SYK
     maxdepth: 500
     mindepthind: 1
-    minind_dataset: 1 # as a proportion of N
-    minind_pop: 1 # as a proportion of N
+    minind_dataset: 0.8 # as a proportion of N
+    minind_pop: 0.8 # as a proportion of N
     rmtrans: true
-    extra: ""
+    extra: "-uniqueOnly 1"
     extra_saf: ""
     extra_beagle: ""
     domajorminor: 1 # Currently only compatible with values 1, 2, 4, 5
@@ -168,6 +170,8 @@ params:
     snp_pval: "1e-6"
     min_maf: 0.05 # Set -1 to disable
     mindepthind_heterozygosity: 1
+  ngsrelate:
+    prune: false
   ngsld:
     max_kb_dist_est-ld: 4000
     rnd_sample_est-ld: 0.001
@@ -175,8 +179,8 @@ params:
     rnd_sample_decay: 0.001
     fit_LDdecay_extra: "--fit_level 100 --fit_boot 100 --plot_size 3,6 --plot_data --plot_no_legend --plot_y_lim 0.5"
     fit_LDdecay_n_correction: true
-    max_kb_dist_pruning_dataset: 50 # used for PCA, Admix, NGSrelate, not ngsF-HMM
-    pruning_min-weight_dataset: 0.1 # used for PCA, Admix, NGSrelate, not ngsF-HMM
+    max_kb_dist_pruning_dataset: 25 # used for PCA, Admix, NGSrelate, not ngsF-HMM
+    pruning_min-weight_dataset: 0.2 # used for PCA, Admix, NGSrelate, not ngsF-HMM
   ngsf-hmm:
     estimate_in_pops: true
     prune: true
@@ -185,8 +189,8 @@ params:
     min_roh_length: 100000
     roh_bins: [ 250000, 500000, 1000000, 2500000, 5000000 ] # in ascending order, bins are between adjacent values and between min_roh_length and value 1 and the last value and infinity
   realsfs:
-    fold: 1 # Should only be set to 1, unless ancestral reference is given above
-    sfsboot: 300
+    fold: 0 # Should only be set to 1, unless ancestral reference is given above
+    sfsboot: 1
   fst:
     whichFst: 1
     win_size: 10000
@@ -196,11 +200,11 @@ params:
     win_step: 5000
     minsites: 1000
   ngsadmix:
-    kvalues: [1,2,3,4,5,6,7,8,9,10]
+    kvalues: [1,2,3,4,5,6,7,8]
     reps: 100
     minreps: 20
-    thresh:
-    conv:
+    thresh: 2
+    conv: 3
     extra: "-maxiter 4000"
   ibs:
     doibs: 1
