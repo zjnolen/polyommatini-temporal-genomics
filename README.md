@@ -93,7 +93,7 @@ snakemake --configfile ../config/generode_<reference_id>.yaml \
   <additional Snakemake opts>
 ```
 
-### 4. Run GONE analyses
+### 4. Run GONE analyses and simulations
 
 The GONE analyses can be run anytime after the variation graph has bee made as
 they will just use the VCF used to make the graph. This is done with the the
@@ -103,6 +103,11 @@ following command:
 snakemake --configfile ../config/config_<species>_vg_notrans.yaml \
   --snakefile workflows/Snakefile_gone <additional Snakemake opts>
 ```
+
+The simulations with Slendr can be run after the GONE outputs are produced,
+with the scripts in the [analyses/slendr](analyses/slendr) folder. See the
+comments in the scripts for how they're run. I just ran these manually with
+command line options and parallel per species.
 
 ### 5. Run the main analyses
 
