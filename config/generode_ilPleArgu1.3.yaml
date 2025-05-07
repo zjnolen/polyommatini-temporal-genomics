@@ -9,7 +9,5 @@
 
 ref_path: "../resources/ref/GCA_905404155.3_ilPleArgu1.3_genomic.fna"
 gerp: True
-gerp_ref_path: "../resources/lepidoptera_genomes/ilPleArgu1.3"
-tree: "../resources/trees/lepidoptera-set.nwk"
-min_gerp: -2
-max_gerp: 30
+gerp_ref_path: "../resources/lycaenidae_genomes/ilPleArgu1.3"
+tree: "../resources/trees/lycaenidae-set.nwk"

@@ -9,7 +9,5 @@
 
 ref_path: "../resources/ref/GCA_937595015.1_ilPolIcar1.1_genomic.fna"
 gerp: True
-gerp_ref_path: "../resources/lepidoptera_genomes/ilPolIcar1.1"
-tree: "../resources/trees/lepidoptera-set.nwk"
-min_gerp: -2
-max_gerp: 30
+gerp_ref_path: "../resources/lycaenidae_genomes/ilPolIcar1.1"
+tree: "../resources/trees/lycaenidae-set.nwk"

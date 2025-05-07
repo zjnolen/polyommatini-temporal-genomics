@@ -1,4 +1,4 @@
 sample	population	time	depth
 MZLU174140	2016Langaedebergen	historical	low
-MZLU174141	1943Murko	historical	low
+#MZLU174141	1943Murko	historical	low #dropped due to low coverage
 MZLU174142	1944Stockholm	historical	low
