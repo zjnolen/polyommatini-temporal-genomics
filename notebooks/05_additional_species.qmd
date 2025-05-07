@@ -1,14 +1,9 @@
 ---
-title: "Figure 4"
+title: "Supplemental Polyommatini species"
 format:
   html:
     code-fold: true
 ---
-
-The fourth figure looks at several blue species and tries to gauge their level
-of genetic diversity loss in the past century. Many of the species only have a
-single sample per time point, so we include a comparison of all possible sample
-pair comparisons in the focal species to see if we get the correct
 
 ```{r}
 #| label: load-packages
@@ -19,19 +14,28 @@ library(ggplot2)
 library(dplyr)
 library(ggpubr) #for bgcolor
 
-main_species_f <- c("picarus-notrans", "pargus-notrans", "csemiargus-notrans")
+main_species_f <- c("picarus-vg-notrans", "pargus-vg-notrans", "csemiargus-vg-notrans")
 main_species <- c("picarus", "pargus", "csemiargus")
+main_species_m <- c("0.3", "0.3", "0.3")
 main_genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 
+species_f <- c(
+  "aagestis-vg", "aoptilete-vg", #"palcon",
+  "cminimus-vg", "pargyrognomon-vg", "sorion-vg"
+)
+
 species <- c(
-  "aagestis", "aoptilete", "cargiolus", "palcon",
-  "pamandus", "pargyrognomon", "sorion"
+  "aagestis", "aoptilete", #"palcon",
+  "cminimus", "pargyrognomon", "sorion"
 )
 genomes <- c(
-  "ilAriAges2.1", "ilCyaSemi1.1", "ilCelArgi3.2",
-  "ilPheArio1.1", "ilPolIcar1.1", "ilPleArgu1.3",
-  "ilGlaAlex1.1"
+  "ilAriAges2.1", "ilAgrOpti3.hap1.1", # "ilCelArgi3.2",
+  "ilCupMini1.1", "ilPleArgu1.3-pargyrognomon", "ilScoOrio1.hap1.1"
 )
+species_m <- c(
+  "0.4", "0.4", "0.4", "0.4", "0.4"
+)
+
 ```
 
 ## Heterozygosity change per year
@@ -49,18 +53,11 @@ use this same calculation as it is a useful visualization.
 
 relhet_all <- c()
 
-dp <- c("full", 3, 2)
-
-for (dep in dp) {
-  if (dep == "full") {
-    depth <- ""
-  } else {
-    depth <- paste0(".dp", dep)
-  }
   for (i in seq_along(c(main_species, species))) {
     s <- c(main_species, species)[i]
-    f <- c(main_species_f, species)[i]
+    f <- c(main_species_f, species_f)[i]
     g <- c(main_genomes, genomes)[i]
+    m <- c(main_species_m, species_m)[i]
 
     qc <- fread(
       paste0(
@@ -84,9 +81,9 @@ for (dep in dp) {
         f,
         ".",
         g,
-        "_all",
-        depth,
-        "_allsites-filts_heterozygosity.tsv"
+        "_all.dp6_allsites-filts.filtered_mindp5-allsites-jointcall_allbal0.21-0.79.notrans.fmiss",
+        m,
+        ".bcftools.het.tsv"
       ),
       header = TRUE,
       sep = "\t"
@@ -105,18 +102,14 @@ for (dep in dp) {
     )
     hz <- merge(hz, samples, by = "sample")
     hz <- merge(hz, qc, by = "sample")
-    if (dep != "full") {
-      hz <- hz[hz$`allsites-filts.depth.mean` > (as.numeric(dep) - 0.1), ]
-    }
     if (s %in% species) {
       hz$year <- str_sub(hz$population, 1, 4)
       hz$region <- "one_region"
     } else {
       hz$year <- str_sub(hz$population, -4, -1)
       hz$region <- str_sub(hz$population, 1, -5)
-      # Lump SW Skåne with W Skåne and SE Skåne with E Skåne
+      # Lump SW Skåne with W Skåne for Pl. argus
       hz[hz$region == "SWSkane", ]$region <- "WSkane"
-      hz[hz$region == "SESkane", ]$region <- "ESkane"
     }
     if (nrow(hz) > 0) {
       regions <- unique(hz$region)
@@ -124,20 +117,24 @@ for (dep in dp) {
       relhet <- c()
 
       for (r in regions) {
-        historical <- hz[hz$region == r & hz$year < 1995, ]$sample
+        if (r == "SESkane") {
+          historical <- hz[hz$region == "ESkane" & hz$year < 1995, ]$sample
+        } else {
+          historical <- hz[hz$region == r & hz$year < 1995, ]$sample
+        }
         modern <- hz[hz$region == r & hz$year > 1995, ]$sample
         if (length(historical) > 0 & length(modern) > 0) {
           combos <- expand.grid(historical, modern)
           colnames(combos) <- c("historical", "modern")
           combos <- merge(
             combos,
-            hz[, c("sample", "heterozygous_per_1000bp", "year")],
+            hz[, c("sample", "hetperbp", "year")],
             by.x = "historical", by.y = "sample"
           )
           colnames(combos) <- c("historical", "modern", "histhz", "histyear")
           combos <- merge(
             combos,
-            hz[, c("sample", "heterozygous_per_1000bp", "year")],
+            hz[, c("sample", "hetperbp", "year")],
             by.x = "modern", by.y = "sample"
           )
           colnames(combos) <- c(
@@ -164,13 +161,12 @@ for (dep in dp) {
           }
           combos$region <- r
           combos$species <- s
-          combos$depth <- dep
           relhet_all <- rbind(relhet_all, combos)
           relhet_all$historical <- as.character(relhet_all$historical)
           relhet_all$modern <- as.character(relhet_all$modern)
         } else {
           df <- data.frame(
-            "hist", "mod", 0, 0, 0, 0, 0, 0, 0, 0, 0, "other_region", s, dep
+            "hist", "mod", 0, 0, 0, 0, 0, 0, 0, 0, 0, "other_region", s
           )
           colnames(df) <- colnames(relhet_all)
           relhet_all <- rbind(relhet_all, df)
@@ -178,21 +174,22 @@ for (dep in dp) {
       }
     } else {
       df <- data.frame(
-        "hist", "mod", 0, 0, 0, 0, 0, 0, 0, 0, 0, "other_region", s, dep
+        "hist", "mod", 0, 0, 0, 0, 0, 0, 0, 0, 0, "other_region", s
       )
       colnames(df) <- colnames(relhet_all)
       relhet_all <- rbind(relhet_all, df)
     }
   }
-}
 
 relhet_meds <- relhet_all %>%
-  group_by(species, region, depth) %>%
+  group_by(species, region) %>%
   summarise(
     med = median(pred_het_ret_100),
-    r = min(pred_het_ret_100),
+    min = min(pred_het_ret_100),
     max = max(pred_het_ret_100)
   )
+
+relhet_meds[ , c(3:5)] <- round(relhet_meds[ , c(3:5)], 2)
 
 write.table(relhet_meds, "../tables/relhet_meds.tsv",
   sep = "\t", quote = FALSE,
@@ -209,14 +206,20 @@ assemble the results into a figure.
 #| fig-height: 4.5
 
 species_names <- c(
-  "Aricia agestis", "Agriades optilete*",
-  "Celastrina argiolus", "Cyaniris semiargus",
-  "Phengaris alcon*", "Polyommatus amandus*", "Plebejus argus",
+  "Aricia agestis", "Agriades optilete", "Cupido minimus",
+  #"Celastrina argiolus",
+  "Cyaniris semiargus",
+  #"Phengaris alcon*", "Polyommatus amandus*",
+  "Plebejus argus",
   "Plebejus argyrognomon*", "Polyommatus icarus", "Scolitantides orion*"
 )
 
 cons_status <- c(
-  "(LC)", "(LC)", "(LC)", "(LC)", "(EN)", "(LC)", "(LC)",
+  "(LC)", "(LC)", "(NT)",
+  # "(LC)",
+  "(LC)",
+  # "(EN)", "(LC)",
+  "(LC)",
   "(CR)", "(LC)", "(EN)"
 )
 
@@ -224,7 +227,7 @@ full_name <- paste0(species_names, " ", cons_status)
 
 spec_cons <- data.frame(t(rbind(species_names, cons_status, full_name)))
 spec_cons$cons_status <- factor(spec_cons$cons_status,
-  levels = c("(LC)", "(EN)", "(CR)")
+  levels = c("(LC)", "(NT)", "(EN)", "(CR)")
 )
 
 relhet_all$species <- factor(relhet_all$species,
@@ -236,6 +239,11 @@ relhet_all$species <- factor(relhet_all$species,
     spec_cons$species_name
   ), ]$full_name
 )
+relhet_all$region <- factor(relhet_all$region,
+  levels = c("WSkane", "ESkane", "SESkane", "NSmaland", "Oland", "one_region")
+)
+
+colors <- c("#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03", "black")
 
 rects <- data.frame(
   xmin = -Inf, xmax = Inf,
@@ -246,11 +254,8 @@ rects <- data.frame(
   )
 )
 
-plots <- list()
-
-for (d in c("full", "3", "2")) {
-  plots[[d]] <- ggplot(
-    relhet_all[relhet_all$depth == d, ],
+ggplot(
+    relhet_all,
     aes(x = species, y = pred_het_ret_100, color = region)
   ) +
     geom_rect(
@@ -260,7 +265,7 @@ for (d in c("full", "3", "2")) {
     ) +
     scale_fill_manual(values = c("red", "yellow", "green")) +
     scale_color_manual(
-      values = c("#658399", "#8A2A3B", "#fecd03", "black", "#244F6E")
+      values = colors
     ) +
     geom_hline(yintercept = 75, linetype = "dashed") +
     geom_hline(yintercept = 95, linetype = "dashed") +
@@ -269,7 +274,7 @@ for (d in c("full", "3", "2")) {
       position = position_dodge(width = 0.5), size = 0.8, linewidth = 1
     ) +
     ylab("Percent retention of heterozygosity over 100 years") +
-    scale_y_continuous(expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, 111), expand = c(0, 0)) +
     scale_x_discrete(labels = ~ str_wrap(.x, 9)) +
     theme_classic() +
     theme(
@@ -277,29 +282,7 @@ for (d in c("full", "3", "2")) {
       axis.title.x = element_blank(),
       legend.position = "none"
     )
-}
-
-plots[["full"]] + bgcolor("white")
 
 ggsave("../figures/fig-specdiv.png", dpi = 600, create.dir = TRUE)
-```
-
-Since we have multiple depth subsamplings, these can be shown in a supplementary
-figure.
-
-```{r}
-#| label: suppfig-other-blues
-#| fig-width: 10
-#| fig-height: 13.5
-library(cowplot)
-
-plot_grid(
-  plots[["full"]],
-  plots[["3"]],
-  plots[["2"]],
-  ncol = 1,
-  labels = c("A", "B", "C")
-)
-
-ggsave("../figures/suppfig-specdiv.png", dpi = 600, create.dir = TRUE)
+ggsave("../figures/fig-specdiv.svg", dpi = 600, create.dir = TRUE)
 ```

@@ -1,0 +1,197 @@
+---
+title: "IBS aligner testing"
+format:
+  html:
+    code-fold: true
+---
+
+```{r}
+#| label: load-packages
+#| code-summary: Load up required packages and setup species and genome lists
+
+library(data.table) # For reading in data while skipping columns
+library(stringr) # For separating pop names into regions and sampling years
+library(ggplot2) # For plotting
+library(ggpubr) # For adding stats to graphs
+library(cowplot) # For arranging plots into a multi-panel figure
+library(knitr) # For rendering tables with kable
+
+species <- c("picarus", "pargus", "csemiargus")
+speclab <- c("P. icarus", "P. argus", "C. semiargus")
+genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
+```
+
+## Investigating reference bias with different aligners
+
+```{r}
+#| label: ibs-vg-bwa
+#| fig-width: 10
+#| fig-height: 10
+
+ibs_all <- c()
+het_all <- c()
+
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+  for (m in c("vg-notrans", "bwa-notrans")) {
+    ibs <- fread(
+      paste0(
+        "../angsd/results/datasets/historical-",
+        s,
+        "-",
+        m,
+        "/qc/ibs_refbias/historical-",
+        s,
+        "-",
+        m,
+        ".",
+        g,
+        "_all_allsites-filts.refibs.tsv"
+      ),
+      header = TRUE,
+      sep = "\t",
+      select = c("sample", "ibs.to.ref")
+    )
+    ibs$type <- "random"
+    ibs2 <- read.table(
+      paste0(
+        "../angsd/results/datasets/historical-",
+        s,
+        "-",
+        m,
+        "/bcfs/historical-",
+        s,
+        "-",
+        m,
+        ".",
+        g,
+        "_all.dp6_allsites-filts.filtered_mindp5-allsites-jointcall_allbal0.21-0.79.notrans.fmiss0.3.bcf.stats.ref_bias"
+      ),
+      header = FALSE)
+    colnames(ibs2) <- c("sample", "ibs.to.ref")
+    ibs2$type <- "genotypes"
+    ibs <- rbind(ibs, ibs2)
+    het <- read.table(
+      paste0(
+        "../angsd/results/datasets/historical-",
+        s,
+        "-",
+        m,
+        "/analyses/heterozygosity/historical-",
+        s,
+        "-",
+        m,
+        ".",
+        g,
+        "_all.dp6_allsites-filts.filtered_mindp5-allsites-jointcall_allbal0.21-0.79.notrans.fmiss0.3.bcftools.het.tsv"
+      ),
+      header = TRUE
+    )
+    het2 <- read.table(
+      paste0(
+        "../angsd/results/datasets/historical-",
+        s,
+        "-",
+        m,
+        "/analyses/heterozygosity/historical-",
+        s,
+        "-",
+        m,
+        ".",
+        g,
+        "_all_allsites-filts_heterozygosity.tsv"
+      ),
+      header = TRUE
+    )
+    het <- het[ , c(1:2)]
+    het[ , 2] <- het[ , 2]*1000
+    colnames(het) <- c("sample", "het")
+    het2 <- het2[ , c(1, 3)]
+    colnames(het2) <- c("sample", "het")
+    het$type <- "Genotype Calls"
+    het2$type <- "Genotype Likelihoods"
+    het <- rbind(het, het2)
+    qc <- fread(
+      paste0(
+        "../angsd/results/datasets/historical-",
+        s,
+        "-",
+        m,
+        "/qc/historical-",
+        s,
+        "-",
+        m,
+        ".",
+        g,
+        "_all.sampleqc.tsv"
+      ),
+      header = TRUE,
+      sep = "\t",
+      select = c(
+        "sample", "population", "time"
+      )
+    )
+    ibs <- merge(ibs, qc, by = c("sample"))
+    ibs$group <- m
+    ibs$species <- s
+    het <- merge(het, qc, by = c("sample"))
+    het$group <- m
+    het$species <- s
+    ibs_all <- rbind(ibs_all, ibs)
+    het_all <- rbind(het_all, het)
+  }
+}
+
+
+ibs_all$time <- factor(ibs_all$time,
+  levels = c("historical", "modern"),
+  labels = c("Historical", "Modern")
+)
+
+ibs_all$species <- factor(ibs_all$species,
+  levels = c("picarus", "pargus", "csemiargus"),
+  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
+)
+
+ibs_all$aligner <- ifelse(grepl("vg", ibs_all$group), "vg", "bwa")
+
+ibs_all$aligner <- factor(ibs_all$aligner,
+  levels = c("bwa", "vg"),
+  labels = c("BWA", "VG"))
+
+
+randoms <- ggplot(ibs_all[ibs_all$type == "random", ], aes(x = time, y = ibs.to.ref)) +
+  geom_boxplot() +
+  facet_grid(species ~ aligner, scales = "free_y") +
+  ylab("Identity by state distance to reference") +
+  geom_jitter(width = 0.1) +
+  theme_bw() +
+  ggtitle("Random read sampling") +
+  theme(
+    axis.title.x = element_blank(),
+    strip.text.y = element_text(face = "italic"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+gts <- ggplot(ibs_all[ibs_all$type == "genotypes", ], aes(x = time, y = ibs.to.ref)) +
+  geom_boxplot() +
+  facet_grid(species ~ aligner, scales = "free_y") +
+  geom_jitter(width = 0.1) +
+  theme_bw() +
+  ggtitle("Genotype calls") +
+  theme(
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    strip.text.y = element_text(face = "italic"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+
+plot_grid(randoms, gts,
+  ncol = 2
+)
+
+ggsave("../figures/suppfig-refbias.png", dpi = 600, create.dir = TRUE)
+```
