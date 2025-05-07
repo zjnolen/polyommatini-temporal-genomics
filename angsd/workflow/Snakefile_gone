@@ -1,0 +1,58 @@
+from snakemake.utils import min_version
+
+"""
+This is the Snakefile just for the GONE analysis. Since these use the modern
+samples with all variants, including transitions, it seemed most straightforward
+to reuse the VCFs called for making the variation graphs. So, this can simply
+be run after the variation graph construction run. Note this means that the
+samples have been mapped with BWA MEM in this analysis, but this is not really
+much of a problem in the modern samples.
+"""
+
+min_version("7.32.0")
+
+
+module angsd:
+    snakefile:
+        github(
+            "zjnolen/PopGLen",
+            path="workflow/Snakefile",
+            tag="6605810fb53b24e289ac0f29b216aecfc589aa96",
+        )
+    config:
+        config
+
+
+use rule * from angsd exclude all
+
+
+use rule all from angsd as popglen_all
+
+
+include: "rules/gone.smk"
+
+
+wildcard_constraints:
+    ref=config["reference"]["name"],
+    dp=".{0}|.dp[1-9][0-9]*",
+    population="|".join(
+        ["all"]
+        + ["all_excl_pca-admix"]
+        + [i for i in angsd.samples.index.tolist()]
+        + [i for i in angsd.samples.population.values.tolist()]
+        + [i for i in angsd.samples.depth.values.tolist()]
+    ),
+    mindp="[1-9][0-9]*",
+
+
+all_outputs = []
+
+
+rule all:
+    input:
+        expand(
+            "results/datasets/{dataset}/analyses/gone/STATUS_{dataset}.{ref}_populations",
+            ref=config["reference"]["name"],
+            dataset=config["dataset"],
+        ),
+    default_target: True

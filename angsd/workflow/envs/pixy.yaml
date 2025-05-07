@@ -1,0 +1,7 @@
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - pixy =2.0.0.beta2
+  - htslib =1.21

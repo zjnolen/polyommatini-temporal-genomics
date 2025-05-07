@@ -6,22 +6,26 @@ min_version("7.32.0")
 
 module angsd:
     snakefile:
-        github("zjnolen/PopGLen", path="workflow/Snakefile", tag="v0.3.0")
+        github(
+            "zjnolen/PopGLen",
+            path="workflow/Snakefile",
+            tag="6605810fb53b24e289ac0f29b216aecfc589aa96",
+        )
     config:
         config
 
 
-use rule * from angsd as angsd_*
+use rule * from angsd exclude all
+
+
+use rule all from angsd as popglen_all
 
 
 include: "rules/call_genotypes.smk"
+include: "rules/diversity_differentiation.smk"
 include: "rules/bcftools_roh.smk"
-include: "rules/gerp.smk"
-include: "rules/vep.smk"
-include: "rules/theta_downsampling.smk"
-
-
-# include: "rules/gone.smk"
+include: "rules/mutation_burden.smk"
+include: "rules/vg-map.smk"
 
 
 wildcard_constraints:
@@ -39,50 +43,59 @@ wildcard_constraints:
 
 all_outputs = []
 
-if config["vep"]:
+if config["call_heterozygosity"]:
     all_outputs.extend(
         expand(
-            "results/datasets/{{dataset}}/analyses/vep/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.varimpacts.tsv",
-            dp=[".dp5"],
-            mindp=[4],
+            "results/datasets/{{dataset}}/analyses/heterozygosity/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}.bcftools.het.tsv",
+            dp=[".dp6"],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
+        )
+    )
+
+
+if config["pixy"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{{dataset}}/analyses/pixy/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}/pixy_fst.txt",
+            dp=[".dp6"],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
+        )
+    )
+
+if config["burden"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{{dataset}}/analyses/burden/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}.varimpacts.tsv",
+            dp=[".dp6"],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
         )
     )
 
 if config["bcftools_roh"]:
     all_outputs.extend(
         expand(
-            "results/datasets/{{dataset}}/plots/inbreeding/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.bcftools.froh_bins.svg",
-            dp=[".dp5"],
-            mindp=[4],
-        )
-    )
-
-if config["gerp_rel_load"]:
-    all_outputs.extend(
-        expand(
-            "results/datasets/{{dataset}}/analyses/gerp/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic.{{trans}}.fmiss{{miss}}.relative-load-gerp.csv",
-            dp=[".dp5"],
-            mindp=[4],
-        )
-    )
-
-if config["downsample_thetas"]:
-    all_outputs.extend(
-        expand(
-            [
-                "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_all{dp}.downsampled_{{sites}}-filts.thetaMean.{win}_{step}.tsv",
-                "results/datasets/{{dataset}}/analyses/thetas/downsampled/{{dataset}}.{{ref}}_modern-historical{dp}.N4_{{sites}}-filts.wilcoxon.tsv",
-            ],
-            dp=[".dp3"],
-            win=config["params"]["thetas"]["win_size"],
-            step=config["params"]["thetas"]["win_step"],
+            "results/datasets/{{dataset}}/plots/inbreeding/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}.bcftools.froh_bins.svg",
+            dp=[".dp6"],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
         )
     )
 
 
 rule all:
     input:
-        rules.angsd_all.input,
+        rules.popglen_all.input,
         expand(
             all_outputs,
             sample=angsd.samples.index,
