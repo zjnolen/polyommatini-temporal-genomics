@@ -43,7 +43,7 @@ for (i in c(1:length(species))) {
   # Read in variant impact counts
   varcounts <- read.table(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/analyses/burden/historical-",
       s,
@@ -56,7 +56,7 @@ for (i in c(1:length(species))) {
 
   froh <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/plots/inbreeding/historical-",
       s,
@@ -292,7 +292,7 @@ gerp_hom <- ggplot(varcounts_all, aes(x = time, y = gerp_hom_n * 1000 / nsites))
 ```{r}
 #| label: fig-csemiargus-roh
 
-rohs <- read.table("../angsd/results/datasets/historical-csemiargus-vg-notrans/analyses/roh/bcftools/historical-csemiargus-vg-notrans.ilCyaSemi1.1_all.dp6_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.regs.roh")
+rohs <- read.table("../analyses/results/datasets/historical-csemiargus-vg-notrans/analyses/roh/bcftools/historical-csemiargus-vg-notrans.ilCyaSemi1.1_all.dp6_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.regs.roh")
 
 colnames(rohs) <- c(
   "type", "sample", "chr", "start", "end", "length",
@@ -306,7 +306,7 @@ nroh <- rohs %>%
   summarise(cumroh = sum(length), nroh = n())
 
 inds <- read.table(
-  "../angsd/results/datasets/historical-csemiargus-vg-notrans/poplists/historical-csemiargus-vg-notrans_all.indiv.list",
+  "../analyses/results/datasets/historical-csemiargus-vg-notrans/poplists/historical-csemiargus-vg-notrans_all.indiv.list",
   header = TRUE
 )
 

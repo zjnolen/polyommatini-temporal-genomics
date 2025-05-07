@@ -61,7 +61,7 @@ relhet_all <- c()
 
     qc <- fread(
       paste0(
-        "../angsd/results/datasets/historical-",
+        "../analyses/results/datasets/historical-",
         f,
         "/qc/historical-",
         f,
@@ -75,7 +75,7 @@ relhet_all <- c()
     qc <- qc[, c("sample", "allsites-filts.depth.mean")]
     hz <- fread(
       paste0(
-        "../angsd/results/datasets/historical-",
+        "../analyses/results/datasets/historical-",
         f,
         "/analyses/heterozygosity/historical-",
         f,
@@ -90,7 +90,7 @@ relhet_all <- c()
     )
     samples <- fread(
       paste0(
-        "../angsd/results/datasets/historical-",
+        "../analyses/results/datasets/historical-",
         f,
         "/poplists/historical-",
         f,

@@ -42,9 +42,9 @@ for (i in c(1:length(species))) {
   g <- genomes[i]
   cov <- as.matrix(read.table(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
-      "-vg-notrans/analyses/pcangsd/historical-",
+      "-vg-notrans/analyses/pcanalyses/historical-",
       s,
       "-vg-notrans.",
       g,
@@ -54,7 +54,7 @@ for (i in c(1:length(species))) {
   ))
   pop <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/poplists/historical-",
       s,
@@ -161,7 +161,7 @@ for (i in c(1:length(species))) {
   }
 
   qopt <- read.table(paste0(
-    "../angsd/results/datasets/historical-",
+    "../analyses/results/datasets/historical-",
     s,
     "-vg-notrans/analyses/ngsadmix/historical-",
     s,
@@ -174,7 +174,7 @@ for (i in c(1:length(species))) {
 
   pop <- as.data.frame(fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/poplists/historical-",
       s,
@@ -284,7 +284,7 @@ for (i in c(1:length(species))) {
 
   pop <- as.data.frame(fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/poplists/historical-",
       s,
@@ -300,7 +300,7 @@ for (i in c(1:length(species))) {
 
   for (k in c(2:8)) {
     qopt <- read.table(paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/analyses/ngsadmix/historical-",
       s,
@@ -313,7 +313,7 @@ for (i in c(1:length(species))) {
 
     q <- read.table(
       paste0(
-        "../angsd/results/datasets/historical-",
+        "../analyses/results/datasets/historical-",
         s,
         "-vg-notrans/analyses/ngsadmix/historical-",
         s,
@@ -403,7 +403,7 @@ for (i in c(1:length(species))) {
     r <- as.matrix(
       read.table(
         paste0(
-          "../angsd/results/datasets/historical-",
+          "../analyses/results/datasets/historical-",
           s,
           "-notrans/analyses/ngsadmix/historical-",
           s,

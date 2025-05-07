@@ -45,7 +45,7 @@ for (i in c(1:length(species))) {
   g <- genomes[i]
   hz <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/analyses/heterozygosity/historical-",
       s,
@@ -58,7 +58,7 @@ for (i in c(1:length(species))) {
   )
   samples <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/qc/historical-",
       s,
@@ -208,7 +208,7 @@ for (i in c(1:length(species))) {
   g <- genomes[i]
   froh <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/plots/inbreeding/historical-",
       s,
@@ -408,7 +408,7 @@ for (i in c(1:length(species))) {
   g <- genomes[i]
   nucdiv <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/analyses/pixy/historical-",
       s,
@@ -460,7 +460,7 @@ for (i in c(1:length(species))) {
   g <- genomes[i]
   fst <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
       "-vg-notrans/analyses/pixy/historical-",
       s,
