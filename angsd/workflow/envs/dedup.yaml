@@ -3,5 +3,5 @@ channels:
   - bioconda
 
 dependencies:
-  - bcftools =1.19
-  - gawk
+  - dedup =0.12.8
+  - samtools =1.20
