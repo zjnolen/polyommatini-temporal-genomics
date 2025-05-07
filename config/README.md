@@ -1,22 +1,42 @@
 # Configuration files for Polyommatini museum manuscript
 
-## Main analyses
+## Configuration files
 
-The config folder contains all the configuration files needed for the main
-analyses. Files that are named `config_<species>.yaml` contain the configuration
-for the main analyses for a given species, and set things like the reference,
-what analyses to run, and with what parameters. They each are primarily to
-configure the PopGLen workflow where most analyses are run, and at the top have
-additional configuration settings for extensions to this analysis made by the
-extra rules in the Snakemake workflow in the [../angsd](../angsd) folder. Each
-of these configs also has a corresponding `samples_<species>.yaml` file which
-contains the sample metadata. All use the same `units.tsv` file, which points
-to the raw data paths and metadata.
+There are many configurations for the different parts of the analyses. These are
+the formats of the filenames that you can expect in here:
 
-## GERP Scores
+- `generode_<refname>.yaml` contains the configuration for the GenErode pipeline
+  to estimate the GERP scores and ancestral states.
 
-GERP scores are calculated for each of the three focal species' references using
-GenErode, and the config files for each are named `generode_<ref_id>.yaml`.
-These GERP scores are needed for the main analyses, so the
-`config_<species>.yaml` files actually reference output files from this
-workflow, meaning it must be run for the references first.
+- `config_<species>_make-vg.yaml` contains the configuration for constructing
+  the variation graph from bwa mem aligned modern samples.
+
+- `config_<species>_vg.yaml`/`config_<species>_vg_notrans.yaml` contains the
+  configuration for running the main manuscript analyses. These align the
+  samples to the variation graph and then run the population genomic analyses.
+
+- `config_<species>_bwa_notrans.yaml` is the same as the previous, but aligns
+  the samples with bwa mem/aln instead. This was used for comparisons of bwa and
+  vg in the supplementary material.
+
+- `config_picarus_bwa_notrans-aln<#>.yaml` is used to map a *Po. icarus*
+  historical sample to the reference with alternate bwa aln settings for
+  comparisons shown in the supplement.
+
+## Sample files
+
+Sample files contain the sample lists for each configuration and are referenced
+in the respective config.yaml files
+
+## Units files
+
+Units files point to the raw data for the samples. These are the raw reads in
+the case of `units.tsv` and are used to get the raw reads whenever they are
+mapped. `units-vgmap.tsv` contains the same info, but also an added bam file so
+that the workflow will know to use the vg aligned bams instead of aligning the
+reads with bwa.
+
+## GONE files
+
+These are templates for the GONE input param files required for the GONE
+analyses for each species and follow the format expected in that tool.

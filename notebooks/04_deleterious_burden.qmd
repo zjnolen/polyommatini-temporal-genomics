@@ -1,0 +1,604 @@
+---
+title: "Deleterious burden"
+format:
+  html:
+    code-fold: true
+---
+
+```{r}
+#| label: load-packages
+
+set.seed(25)
+
+library(ggplot2) # For general plotting
+library(data.table) # For reading in data tables without reading in all columns
+library(dplyr) # For manipulating dataframes
+library(tidyr) # For splitting data frame columns
+library(stringr) # For subsetting metadata strings
+library(ggtext) # For markdown syntax in ggplot
+library(ggpubr) # For t.test results within plots
+library(scales) # For muted colors
+library(ggh4x) # For nested ggplot facets
+library(cowplot) # For arranging plots
+library(broom.mixed)
+library(nlme)
+
+species <- c("picarus", "pargus", "csemiargus")
+species_names <- c("Po. icarus", "Pl. argus", "Cy. semiargus")
+genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
+```
+
+## Deleterious mutation burden
+
+```{r}
+#| label: stats-burden
+
+varcounts_all <- c()
+froh_all <- c()
+
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+
+  # Read in variant impact counts
+  varcounts <- read.table(
+    paste0(
+      "../analyses/results/datasets/historical-",
+      s,
+      "-vg-notrans/analyses/burden/historical-",
+      s,
+      "-vg-notrans.",
+      g,
+      "_all.dp6_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.varimpacts_anc.tsv"
+    ),
+    header = TRUE
+  )
+
+  froh <- fread(
+    paste0(
+      "../analyses/results/datasets/historical-",
+      s,
+      "-vg-notrans/plots/inbreeding/historical-",
+      s,
+      "-vg-notrans.",
+      g,
+      "_all.dp6_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.bcftools.ind_froh.tsv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "population", "time", "depth", "Froh")
+  )
+  varcounts <- merge(varcounts, froh, by = c("sample", "population", "time", "depth"))
+  varcounts$species <- s
+  froh$species <- s
+  froh_all <- rbind(froh_all, froh)
+  varcounts_all <- rbind(varcounts_all, varcounts)
+}
+
+varcounts_all$year <- str_sub(varcounts_all$population, -4, -1)
+varcounts_all$region <- str_sub(varcounts_all$population, 1, -5)
+
+varcounts_all$species <- factor(
+  varcounts_all$species,
+  levels = species,
+  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
+)
+
+varcounts_all$time <- factor(
+  varcounts_all$time,
+  levels = c("historical", "modern"),
+  labels = c("Historical", "Modern")
+)
+
+varcounts_all$region <- factor(
+  varcounts_all$region,
+  levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
+  labels = c(
+    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
+  )
+)
+
+varcounts_all$region_group <- varcounts_all$region
+varcounts_all[varcounts_all$region_group == "SW Skåne", ]$region_group <- "W Skåne"
+varcounts_all[varcounts_all$region_group == "SE Skåne", ]$region_group <- "E Skåne"
+
+# varcounts_means <- varcounts_all %>%
+#   group_by(species, population) %>%
+#   do(
+#     data.frame(
+#       rbind(
+#         Hmisc::smean.cl.boot(.$Froh, B = 1000)
+#       )
+#     )
+#   )
+
+# write.table(froh_means, "../tables/froh_means.tsv",
+#   row.names = FALSE, quote = FALSE, sep = "\t"
+# )
+
+varcounts_stats <- c()
+
+for (s in species_names) {
+  for (i in c("gerp_n", "high", "mod", "low", "inter", "gerp_hom_n", "high_hom", "mod_hom", "low_hom", "inter_hom")) {
+    hist <- mean(varcounts_all[varcounts_all$species == s & varcounts_all$time == "Historical", i] * 1000 / varcounts_all[varcounts_all$species == s & varcounts_all$time == "Historical", "nsites"])
+    mod <- mean(varcounts_all[varcounts_all$species == s & varcounts_all$time == "Modern", i] * 1000 / varcounts_all[varcounts_all$species == s & varcounts_all$time == "Modern", "nsites"])
+    ratio <- mod/hist
+    model <- lme(as.formula(paste0(i, " * 1000 / nsites ~ time")), random = ~1|region_group,
+      data = varcounts_all[varcounts_all$species == s, ]
+    )
+    tidyed <- tidy(model, conf.int = TRUE, effects = "fixed")
+    tidydf <- tidyed[2, c(3,4,6,7,8,9)]
+    tidydf$hist.mean <- hist
+    tidydf$mod.mean <- mod
+    tidydf$`mod/hist` <- ratio
+    tidydf <- round(tidydf, 5)
+    tidydf$species <- s
+    tidydf <- tidydf[ , c(10, 7, 8, 9, 1, 2, 3, 5, 6, 4)]
+    tidydf$type <- i
+    varcounts_stats <- rbind(varcounts_stats, tidydf)
+  }
+}
+
+write.table(varcounts_stats, "../tables/burden_stats.tsv",
+  row.names = FALSE, quote = FALSE, sep = "\t"
+)
+```
+
+```{r}
+#| label: fig-burden
+
+high <- ggplot(varcounts_all, aes(x = time, y = high * 1000 / nsites)) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_point(
+    aes(color = Froh, group = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
+  ylab("LoF") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.01),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+
+high_hom <- ggplot(varcounts_all, aes(x = time, y = high_hom * 1000 / nsites)) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_point(
+    aes(color = Froh, group = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.01),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+
+mod <- ggplot(varcounts_all, aes(x = time, y = mod * 1000 / nsites)) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_point(
+    aes(color = Froh, group = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
+  ylab("Missense") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.1),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  geom_signif(
+    data = varcounts_all[varcounts_all$species == "Pl. argus", ],
+    comparisons = list(c("Historical", "Modern")),
+    annotations = "***"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+
+mod_hom <- ggplot(varcounts_all, aes(x = time, y = mod_hom * 1000 / nsites)) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_point(
+    aes(color = Froh, group = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.1),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  geom_signif(
+    data = varcounts_all[varcounts_all$species == "Cy. semiargus", ],
+    comparisons = list(c("Historical", "Modern")),
+    annotations = "**"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+
+
+gerp <- ggplot(varcounts_all, aes(x = time, y = gerp_n * 1000 / nsites)) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_point(
+    aes(color = Froh, group = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
+  ylab("Conserved Positions") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.1),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+
+gerp_hom <- ggplot(varcounts_all, aes(x = time, y = gerp_hom_n * 1000 / nsites)) +
+  facet_grid(cols = vars(species)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_point(
+    aes(color = Froh, group = region),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  scale_color_gradient(high = "#6e016b", low = "#9ebcda") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.1),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  geom_signif(
+    data = varcounts_all[varcounts_all$species %in% c("Pl. argus", "Cy. semiargus"), ],
+    comparisons = list(c("Historical", "Modern")),
+    annotations = "**"
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    strip.text.x = element_text(size = 10, face = "italic")
+  )
+```
+
+```{r}
+#| label: fig-csemiargus-roh
+
+rohs <- read.table("../analyses/results/datasets/historical-csemiargus-vg-notrans/analyses/roh/bcftools/historical-csemiargus-vg-notrans.ilCyaSemi1.1_all.dp6_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.regs.roh")
+
+colnames(rohs) <- c(
+  "type", "sample", "chr", "start", "end", "length",
+  "inform_sites", "phred"
+)
+
+rohs <- rohs[rohs$length >= 100000 & rohs$phred >= 85, ]
+
+nroh <- rohs %>%
+  group_by(sample) %>%
+  summarise(cumroh = sum(length), nroh = n())
+
+inds <- read.table(
+  "../analyses/results/datasets/historical-csemiargus-vg-notrans/poplists/historical-csemiargus-vg-notrans_all.indiv.list",
+  header = TRUE
+)
+
+inds <- inds[inds$sample != "MZLU152765", ]
+
+nroh <- merge(inds, nroh, by = "sample", all = TRUE)
+nroh[is.na(nroh)] <- 0
+
+norun <- c()
+norun$type <- rep("RG", nrow(inds))
+norun$sample <- inds$sample
+norun$chr <- rep(0, nrow(inds))
+norun$start <- rep(0, nrow(inds))
+norun$end <- rep(0, nrow(inds))
+norun$length <- rep(0, nrow(inds))
+norun$inform_sites <- rep(0, nrow(inds))
+norun$phred <- rep(0, nrow(inds))
+norun <- data.frame(norun)
+
+autosize <- 416794061
+
+bins <- c(Inf, 6000000, 3000000, 1500000, 500000, 100000)
+
+frohs <- c()
+ranges <- c()
+
+for (i in seq(length(bins))) {
+  if (i <= length(bins) - 1) {
+    runs <- rohs[rohs$length < bins[i], ]
+    runs <- runs[runs$length >= bins[i + 1], ]
+    runs <- rbind(runs, norun)
+    runs <- runs %>%
+      group_by(sample) %>%
+      summarize(length = sum(length))
+    runs <- merge(runs, inds, by = "sample")
+    runs$froh <- runs$length / autosize
+    runs$range <- paste0(bins[i], "-", bins[i + 1])
+    ranges <- c(ranges, paste0(bins[i], "-", bins[i + 1]))
+    frohs <- rbind(frohs, runs)
+  }
+}
+
+range_labels <- rev(c("0.1-0.5", "0.5-1.5", "1.5-3", "3-6", ">6"))
+frohs$range <- as.factor(frohs$range)
+frohs$range <- factor(frohs$range, levels = ranges, labels = range_labels)
+
+indfroh <- frohs %>%
+  group_by(sample) %>%
+  summarize(froh = sum(froh))
+
+frohs$sample <- factor(frohs$sample, levels = indfroh$sample[order(indfroh$froh)])
+
+popord <- c(
+  "WSkane1951", "ESkane1956", "NSmaland1936", "WSkane2021", "ESkane2021",
+  "SESkane2022", "NSmaland2021"
+)
+
+poplab <- c(
+  "W Skåne\n1951", "E Skåne\n1956", "Småland\n1936", "W Skåne\n2021",
+  "E Skåne\n2021", "SE Skåne\n2022", "Småland\n2021"
+)
+
+frohs$population <- factor(frohs$population, levels = popord, labels = poplab)
+frohs$time <- factor(frohs$time,
+  levels = c("historical", "modern"),
+  labels = c("Historical", "Modern")
+)
+
+frohplot <- ggplot(
+  data = frohs, aes(x = sample, y = froh, alpha = range), fill = "black"
+) +
+  geom_bar(position = "stack", stat = "identity") +
+  facet_nested(~ time + population,
+    scales = "free_x", space = "free",
+    nest_line = TRUE
+  ) +
+  theme_bw() +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.35)) +
+  scale_alpha_discrete(range = c(1, 0.4)) +
+  labs(y = "*F~RoH~* (*Cy. semiargus*)", alpha = "*RoH* size (Mb)") +
+  theme(
+    legend.position = "bottom",
+    strip.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.title.y = element_markdown(),
+    legend.title = element_markdown(),
+    axis.title.x = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+  )
+
+# nroh <- nroh[nroh$time == "modern", ]
+
+# popmeans <- nroh %>%
+#   group_by(population) %>%
+#   summarize(
+#     nroh = mean(nroh),
+#     cumroh = mean(cumroh)
+#   )
+
+
+# ggplot(nroh, aes(x = cumroh, y = nroh)) +
+#   geom_point(aes(
+#     color = population,
+#     shape = population
+#   ), alpha = 0.6) +
+#   geom_point(
+#     data = popmeans,
+#     aes(x = cumroh, y = nroh, size = 3, color = population, shape = population)
+#   ) +
+#   scale_color_manual(
+#     values = c("#658399", "#8A2A3B", "#658399", "#244F6E")
+#   ) +
+#   scale_shape_manual(
+#     values = c(15:18)
+#   ) +
+#   guides(size = "none") +
+#   ylab("Total RoH Count") +
+#   xlab("Cumulative length of RoHs (bp)") +
+#   theme_classic() +
+#   theme(
+#     aspect.ratio = 1
+#   )
+
+# ggsave("../figures/suppfig-nrohs.png", dpi = 600, create.dir = TRUE)
+```
+
+```{r}
+#| label: fig-load
+#| fig-height: 8
+#| fig-width: 8
+
+mod_clean <- mod +
+  ggtitle("Total derived count") +
+  theme(
+    plot.margin = unit(c(5.5, 5.5, 3, 5.5), "pt"),
+    legend.position = "none",
+    axis.title.y = element_markdown(size = 8),
+    axis.text.x = element_blank(),
+    strip.background = element_blank()
+  )
+
+high_clean <- high +
+  theme(
+    plot.margin = unit(c(3, 5.5, 3, 5.5), "pt"),
+    legend.position = "none",
+    strip = element_blank(),
+    axis.title.y = element_markdown(size = 8),
+    axis.text.x = element_blank(),
+    strip.text.x = element_blank(),
+    strip.background = element_blank()
+  )
+
+gerp_clean <- gerp +
+  theme(
+    plot.margin = unit(c(3, 5.5, 5.5, 5.5), "pt"),
+    legend.position = "none",
+    strip = element_blank(),
+    axis.title.y = element_markdown(size = 8),
+    strip.text.x = element_blank(),
+    strip.background = element_blank()
+  )
+
+mod_hom_clean <- mod_hom +
+  ggtitle("Homozygous derived count") +
+  theme(
+    plot.margin = unit(c(5.5, 5.5, 3, 5.5), "pt"),
+    legend.position = "none",
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    strip.background = element_blank()
+  )
+
+high_hom_clean <- high_hom +
+  theme(
+    plot.margin = unit(c(3, 5.5, 3, 5.5), "pt"),
+    legend.position = "none",
+    strip = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    strip.text.x = element_blank(),
+    strip.background = element_blank()
+  )
+
+gerp_hom_clean <- gerp_hom +
+  theme(
+    plot.margin = unit(c(3, 5.5, 5.5, 5.5), "pt"),
+    legend.position = "none",
+    strip = element_blank(),
+    axis.title.y = element_blank(),
+    strip.text.x = element_blank(),
+    strip.background = element_blank()
+  )
+
+total_load <- plot_grid(
+  mod_clean,
+  high_clean,
+  gerp_clean,
+  rel_heights = c(1.2, 0.9, 1),
+  ncol = 1,
+  align = "v"
+)
+
+real_load <- plot_grid(
+  mod_hom_clean,
+  high_hom_clean,
+  gerp_hom_clean,
+  rel_heights = c(1.2, 0.9, 1),
+  ncol = 1,
+  align = "v"
+)
+
+load <- plot_grid(total_load, real_load, ncol = 2, labels = c("B", "C"), rel_widths = c(1.1, 1))
+
+legend_inb <- get_plot_component(
+  gerp +
+    labs(color = "*F~RoH~*") +
+    theme(
+      legend.position = "bottom",
+      legend.title = element_markdown(),
+      legend.key.width = unit(2, "cm")
+    ),
+  "guide-box",
+  return_all = TRUE
+)[[3]]
+
+plot_grid(frohplot, load, legend_inb,
+  ncol = 1,
+  rel_heights = c(0.4, 0.7, 0.1),
+  labels = c("A", "", "")
+) + bgcolor("white")
+
+ggsave("../figures/fig-load.png", dpi = 600, create.dir = TRUE)
+ggsave("../figures/fig-load.svg", dpi = 600, create.dir = TRUE)
+```
+
+```{r}
+#| label: fig-inbrload
+#| fig-width: 8
+#| fig-height: 3
+
+var_csemi <- varcounts_all[varcounts_all$species == "Cy. semiargus",]
+
+gerpreg <- ggplot(var_csemi, aes(x = Froh, y = gerp_adj * 1000 / nsites)) +
+  ggtitle("Conserved Regions") +
+  geom_point(color = "red") +
+  geom_point(aes(y = gerp_adj_hom * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = gerp_adj_hom * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  stat_cor(color = "red", label.y = 0.75) +
+  stat_cor(aes(y = gerp_adj_hom * 1000 / nsites), color = "blue", label.y = 0.5) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+
+highreg <- ggplot(var_csemi, aes(x = Froh, y = high * 1000 / nsites)) +
+  ggtitle("LoF") +
+  geom_point(color = "red") +
+  geom_point(aes(y = high_hom * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = high_hom * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  stat_cor(color = "red", label.y = 0.13) +
+  stat_cor(aes(y = high_hom * 1000 / nsites), label.y = 0, color = "blue") +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+modreg <- ggplot(var_csemi, aes(x = Froh, y = mod * 1000 / nsites)) +
+  ggtitle("Missense") +
+  geom_point(color = "red") +
+  geom_point(aes(y = mod_hom * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = mod_hom * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  stat_cor(color = "red", label.y = 5) +
+  stat_cor(aes(y = mod_hom * 1000 / nsites), label.y = 1, color = "blue") +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+plot_grid(gerpreg, highreg, modreg, ncol = 3)
+ggsave("../figures/suppfig-inbreg.png", dpi = 600, create.dir = TRUE)
+```

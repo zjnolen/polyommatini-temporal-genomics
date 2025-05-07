@@ -13,6 +13,7 @@ logs
 misc
 writing
 sync.err
+generode*
 
 # Ignore only for now until determining what needs to be included
 index.qmd
@@ -21,7 +22,10 @@ figures
 tables
 images
 /scripts
-angsd/results
+analyses/results
+analyses/results-rackham
 resources
 _freeze
 _manuscript
+custom-reference-doc.docx
+sims

@@ -5,12 +5,11 @@ format:
     code-fold: true
 ---
 
-The first figure focuses on changes in genetic diversity and differentiation
-over time, and introduces the sampling area and focal species.
-
 ```{r}
 #| label: load-packages
 #| code-summary: Load up required packages and setup species and genome lists
+
+set.seed(20)
 
 library(data.table) # For reading in data while skipping columns
 library(stringr) # For separating pop names into regions and sampling years
@@ -23,99 +22,58 @@ library(geosphere) # For including distances on F~ST~ plot
 library(scales) # For some control of plot scales
 library(png) # For reading in maps made in QGIS
 library(grid) # For plotting maps made in QGIS with ggplot
-library(knitr) # For markdown tables in report
 library(dplyr) # For summary tables in groups
+library(nlme) # For mixed effect models
+library(broom.mixed) # For tidying mixed effect models
+library(Hmisc) # For bootstrapped confidence intervals
+library(ggsignif) # For significance levels in plots
 
 species <- c("picarus", "pargus", "csemiargus")
+species_names <- c("Po. icarus", "Pl. argus", "Cy. semiargus")
 genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 ```
 
 ## Heterozygosity
-
-For heterozygosity, read in the individual heterozygosity results from ANGSD.
-These are genome-wide average estimates of heterozygous sites per 1000bp. They
-also have a confidence interval for this from bootstraps of the single sample
-SFS. Since this is mixing modern and historical samples with DNA damage, these
-estimates are made excluding transitions. We test for a change in heterozygosity
-across the time periods using a t-test (unequal variance) comparing all modern
-samples to all historical samples within each species.
 
 ```{r}
 #| label: tbl-heterozygosity
 
 hz_all <- c()
 
-hz_stats <- c()
-
 for (i in c(1:length(species))) {
   s <- species[i]
   g <- genomes[i]
-  for (d in c("", ".dp3")) {
-    depth <- str_sub(d, -1)
-    hz <- fread(
-      paste0(
-        "../angsd/results/datasets/historical-",
-        s,
-        "-notrans/analyses/heterozygosity/historical-",
-        s,
-        "-notrans.",
-        g,
-        "_all",
-        d,
-        "_allsites-filts_heterozygosity.tsv"
-      ),
-      header = TRUE,
-      sep = "\t"
-    )
-    samples <- fread(
-      paste0(
-        "../angsd/results/datasets/historical-",
-        s,
-        "-notrans/qc/historical-",
-        s,
-        "-notrans.",
-        g,
-        "_all",
-        d,
-        ".sampleqc.tsv"
-      ),
-      header = TRUE,
-      sep = "\t",
-      select = c("sample", "population", "time", "allsites-filts.depth.mean")
-    )
-    hz$dp <- depth
-    hz <- merge(hz, samples, by = "sample")
-    if (depth != "") {
-      hz <- hz[!hz$`allsites-filts.depth.mean` < as.integer(depth) - 0.1, ]
-    }
-    hz$species <- s
-    testhistmod <- t.test(
-      hz[hz$time == "historical", "heterozygous_per_1000bp"],
-      hz[hz$time == "modern", "heterozygous_per_1000bp"]
-    )
-    stats <- c(
+  hz <- fread(
+    paste0(
+      "../analyses/results/datasets/historical-",
       s,
-      depth,
-      testhistmod$estimate[2] - testhistmod$estimate[1],
-      -testhistmod$conf.int[2:1],
-      testhistmod$method,
-      testhistmod$statistic,
-      testhistmod$p.value
-    )
-    hz_stats <- data.frame(rbind(hz_stats, stats))
-    hz_all <- rbind(hz_all, hz)
-  }
+      "-vg-notrans/analyses/heterozygosity/historical-",
+      s,
+      "-vg-notrans.",
+      g,
+      "_all.dp6_allsites-filts.filtered_mindp5-allsites-jointcall_allbal0.21-0.79.notrans.fmiss0.3.bcftools.het.tsv"
+    ),
+    header = TRUE,
+    sep = "\t"
+  )
+  samples <- fread(
+    paste0(
+      "../analyses/results/datasets/historical-",
+      s,
+      "-vg-notrans/qc/historical-",
+      s,
+      "-vg-notrans.",
+      g,
+      "_all.sampleqc.tsv"
+    ),
+    header = TRUE,
+    sep = "\t",
+    select = c("sample", "population", "time")
+  )
+  hz <- merge(hz, samples, by = "sample")
+  hz$species <- s
+  hz_all <- rbind(hz_all, hz)
 }
-
-
-colnames(hz_stats) <- c(
-  "Species", "Depth", "Mean Diff", "CI (Lower)", "CI (Upper)", "Method",
-  "t-value", "p-value"
-)
-
-write.table(hz_stats, "../tables/hz_stats.tsv",
-  row.names = FALSE, quote = FALSE, sep = "\t"
-)
 
 hz_all$year <- str_sub(hz_all$population, -4, -1)
 hz_all$region <- str_sub(hz_all$population, 1, -5)
@@ -123,7 +81,7 @@ hz_all$region <- str_sub(hz_all$population, 1, -5)
 hz_all$species <- factor(
   hz_all$species,
   levels = species,
-  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
+  labels = species_names
 )
 
 hz_all$time <- factor(
@@ -140,30 +98,69 @@ hz_all$region <- factor(
   )
 )
 
+hz_all$region_group <- hz_all$region
+hz_all[hz_all$region_group == "SW Skåne", ]$region_group <- "W Skåne"
+hz_all[hz_all$region_group == "SE Skåne", ]$region_group <- "E Skåne"
+
+
 hz_table <- hz_all[, c(
-  "sample", "species", "time", "pop", "dp",
-  "heterozygous_per_1000bp", "lower_95_CI", "upper_95_CI"
+  "sample", "species", "time", "population", "hetperbp", "hetperalt"
 )]
 
 write.table(hz_table, "../tables/hz_ests.tsv",
   row.names = FALSE, quote = FALSE, sep = "\t"
 )
-
-kable(hz_table, row.names = FALSE)
 ```
 
-Plot the heterozygosity by species. Show points colored by the sampled
-areas, but group time periods together in a single boxplot.
+```{r}
+#| label: stats-heterozygosity
+
+hz_means <- hz_all %>%
+  group_by(species, population) %>%
+  do(
+    data.frame(
+      rbind(
+        Hmisc::smean.cl.boot(.$hetperbp, B = 1000)
+      )
+    )
+  )
+
+write.table(hz_means, "../tables/hz_means.tsv",
+  row.names = FALSE, quote = FALSE, sep = "\t"
+)
+
+hz_stats <- c()
+
+for (s in species_names) {
+  hist <- mean(hz_all[hz_all$species == s & hz_all$time == "Historical", ]$hetperbp * 1000)
+  mod <- mean(hz_all[hz_all$species == s & hz_all$time == "Modern", ]$hetperbp * 1000)
+  ratio <- mod/hist
+  model <- lme(hetperbp * 1000 ~ time, random = ~1|region_group, data = hz_all[hz_all$species == s, ])
+  tidyed <- tidy(model, conf.int = TRUE, effects = "fixed")
+  tidydf <- tidyed[2, c(3,4,6,7,8,9)]
+  tidydf$hist.mean <- hist
+  tidydf$mod.mean <- mod
+  tidydf$`mod/hist` <- ratio
+  tidydf <- round(tidydf, 5)
+  tidydf$species <- s
+  tidydf <- tidydf[ , c(10, 7, 8, 9, 1, 2, 3, 5, 6, 4)]
+  hz_stats <- rbind(hz_stats, tidydf)
+}
+
+write.table(hz_stats, "../tables/hz_stats.tsv",
+  row.names = FALSE, quote = FALSE, sep = "\t"
+)
+```
 
 ```{r}
 #| label: fig-het-box
 #| fig-width: 6
 #| fig-height: 2.5
 
-hzbox <- ggplot(hz_all[hz_all$dp == "3", ], aes(x = time, y = heterozygous_per_1000bp)) +
+hzbox <- ggplot(hz_all, aes(x = time, y = hetperbp * 1000)) +
   facet_grid(cols = vars(species)) +
   geom_boxplot(
-    aes(x = time, y = heterozygous_per_1000bp),
+    aes(x = time, y = hetperbp * 1000),
     inherit.aes = FALSE,
     outliers = FALSE
   ) +
@@ -173,319 +170,36 @@ hzbox <- ggplot(hz_all[hz_all$dp == "3", ], aes(x = time, y = heterozygous_per_1
   ) +
   scale_shape_manual(values = c(17, 16), guide = "none") +
   ylab("<span style='font-size: 9pt'>Heterozygous sites per 1000bp</span><br><span style='font-size: 7pt'>(excl. transitions)</span>") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.1),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
   scale_color_manual(
     values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
     name = "Geographic Region"
   ) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
-  geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
+  geom_signif(
+    data = hz_all[hz_all$species == "Cy. semiargus", ],
+    comparisons = list(c("Historical", "Modern")),
+    annotations="**",
+    margin_top = 0,
+    y_position = 3
+  ) +
   theme_bw() +
   theme(
-    legend.position.inside = c(0.08, 0.35),
+    legend.position = "none",
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_blank(),
     axis.title.y = element_markdown(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
-
-hzbox
-```
-
-## Nucleotide diversity, Watterson's θ, and Tajima's D
-
-To examine the extent of within population genetic diversity changes, we will
-look at nucleotide diversity (measuring the average pairwise differences
-between sequences), Watterson's θ (measuring the number of segregating sites),
-and Tajima's D (measuring excess or deficit of low frequency variation compared
-to the neutral expectation). As nucleotide diversity is less impacted by rare
-variants, sample size is less of a concern. Watterson's θ and Tajima's D,
-however, are heavily influenced by rare variants and as such, can change
-considerably as more samples are added. So, for these metrics, we will be
-comparing the median of 100 subsampled estimates of 4 individuals each. In
-general, we will consider populations to have different estimates if there is
-no overlap in the confidence intervals of any of the individual subsamples.
-
-First, we will read in the subsampled results. Each subsample has a mean for
-each of the three metrics, as well as a confidence interval for each, built by
-bootstrapping across genomic windows.
-
-```{r}
-#| label: suppfig-thetas
-#| fig-width: 7
-#| fig-height: 7
-
-theta_ests <- c()
-
-for (i in c(1:length(species))) {
-  s <- species[i]
-  g <- genomes[i]
-  for (d in c("", ".dp3")) {
-    # Have to read in a bit weird as I accidentally put all values on separate
-    # lines of the data file in my script.
-    theta <- readLines(
-      paste0(
-        "../angsd/results/datasets/historical-",
-        s,
-        "-notrans/analyses/thetas/downsampled/historical-",
-        s,
-        "-notrans.",
-        g,
-        "_all",
-        d,
-        ".downsampled_allsites-filts.thetaMean.10000_5000.tsv"
-      )
-    )
-    header <- read.table(text = theta[1], sep = "\t", header = TRUE)
-    theta <- as.data.frame(matrix(theta[-1], ncol = 12, byrow = TRUE))
-    colnames(theta) <- colnames(header)
-    theta$species <- s
-    theta$dp <- d
-    theta_ests <- rbind(theta_ests, theta)
-  }
-}
-
-theta_ests[, -c(1, 13:14)] <- sapply(theta_ests[, -c(1, 13:14)], as.numeric)
-
-theta_ests <- theta_ests %>%
-  group_by(species, dp, pop) %>%
-  summarise(
-    med_pi = median(pi),
-    min_pi = min(pi),
-    max_pi = max(pi),
-    med_watt = median(watterson),
-    min_watt = min(watterson),
-    max_watt = max(watterson),
-    med_taj = median(tajima),
-    min_taj = min(tajima),
-    max_taj = max(tajima)
-  )
-
-write.table(theta_ests, "../tables/theta_ests.tsv",
-  sep = "\t", quote = FALSE,
-  row.names = FALSE
-)
-
-theta_stats <- c()
-
-for (i in c(1:length(species))) {
-  s <- species[i]
-  g <- genomes[i]
-  for (d in c("", ".dp3")) {
-    theta <- read.table(
-      paste0(
-        "../angsd/results/datasets/historical-",
-        s,
-        "-notrans/analyses/thetas/downsampled/historical-",
-        s,
-        "-notrans.",
-        g,
-        "_modern-historical",
-        d,
-        ".N4_allsites-filts.wilcoxon.tsv"
-      ),
-      header = TRUE,
-      sep = "\t"
-    )
-    # fix a coding mistake that added the depth subsampling wildcard to the
-    # historical population
-    theta$histpop <- sapply(
-      theta$histpop,
-      function(x) str_split(x, "\\.")[[1]][1]
-    )
-    theta$species <- s
-    theta$dp <- d
-    theta_stats <- rbind(theta_stats, theta)
-  }
-}
-
-theta_stats$modyear <- str_sub(theta_stats$modpop, -4, -1)
-theta_stats$modreg <- str_sub(theta_stats$modpop, 1, -5)
-theta_stats$histyear <- str_sub(theta_stats$histpop, -4, -1)
-theta_stats$histreg <- str_sub(theta_stats$histpop, 1, -5)
-
-theta_stats$species <- factor(
-  theta_stats$species,
-  levels = species,
-  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
-)
-
-theta_stats$modreg <- factor(
-  theta_stats$modreg,
-  levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
-  labels = c(
-    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
-  )
-)
-
-theta_stats$histreg <- factor(
-  theta_stats$histreg,
-  levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
-  labels = c(
-    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
-  )
-)
-
-theta_stats$dp <- factor(
-  theta_stats$dp,
-  levels = c("", ".dp3"),
-  labels = c("Full Depth", "3X Depth")
-)
-
-theta_stats$xlab <- paste0(
-  theta_stats$modreg, " (", theta_stats$modyear, ") -<br>",
-  theta_stats$histreg, " (", theta_stats$histyear, ")"
-)
-
-colorscale <- c("#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03")
-
-pi <- ggplot(theta_stats, aes(x = xlab, y = pi.effsize)) +
-  facet_grid(cols = vars(species), scales = "free") +
-  geom_violin(
-    aes(fill = modreg, linetype = dp)
-  ) +
-  geom_hline(yintercept = 0) +
-  ylim(c(-1, 1)) +
-  ylab("Δ Nucleotide Diversity<br>Effect Size") +
-  scale_fill_manual(
-    values = colorscale,
-    name = "Geographic Region"
-  ) +
-  theme_bw() +
-  theme(
-    # legend.position.inside = c(0.08, 0.35),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_markdown(),
-    strip.text.x = element_text(size = 10, face = "italic")
-  )
-
-watterson <- ggplot(theta_stats, aes(x = xlab, y = watterson.effsize)) +
-  facet_grid(cols = vars(species), scales = "free") +
-  geom_violin(
-    aes(fill = modreg, linetype = dp)
-  ) +
-  geom_hline(yintercept = 0) +
-  ylim(c(-1, 1)) +
-  ylab("Δ Watterson's *θ*<br>Effect Size") +
-  scale_fill_manual(
-    values = colorscale,
-    name = "Geographic Region"
-  ) +
-  theme_bw() +
-  theme(
-    # legend.position.inside = c(0.08, 0.35),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_markdown(),
-    strip.text.x = element_text(size = 10, face = "italic")
-  )
-
-tajima <- ggplot(theta_stats, aes(x = xlab, y = tajima.effsize)) +
-  facet_grid(cols = vars(species), scales = "free") +
-  geom_violin(
-    aes(fill = modreg, linetype = dp)
-  ) +
-  geom_hline(yintercept = 0) +
-  ylim(c(-1, 1)) +
-  ylab("Δ Tajima's *D*<br>Effect Size") +
-  scale_fill_manual(
-    values = colorscale,
-    guide = "none"
-  ) +
-  theme_bw() +
-  theme(
-    # legend.position.inside = c(0.08, 0.35),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_markdown(),
-    strip.text.x = element_text(size = 10, face = "italic")
-  )
-
-plot_grid(
-  pi + theme(
-    axis.text.x = element_blank(),
-    legend.position = "none"
-  ),
-  watterson + theme(
-    axis.text.x = element_blank(),
-    legend.position = "none"
-  ),
-  tajima + theme(
-    axis.text.x = element_markdown(size = 6, angle = 45, vjust = 1, hjust = 1),
-    legend.position = "bottom",
-    legend.title = element_blank()
-  ),
-  nrow = 3, ncol = 1,
-  rel_heights = c(1, 1, 1.7),
-  labels = c("A", "B", "C")
-)
-
-ggsave("../figures/suppfig-thetas.png", dpi = 600, create.dir = TRUE)
-
-theta_stats$pair <- paste0(theta_stats$modpop, "_", theta_stats$histpop)
-
-# theta_stats["pi.pval"][theta_stats["pi.pval"] == 0] <- 2.22e-16
-
-theta_table <- theta_stats %>%
-  group_by(species, pair, modreg, modyear, histreg, histyear, dp) %>%
-  summarise(
-    med_pidiff = median(pi.diff),
-    med_piret = median(pi.retained),
-    med_piz = median(pi.z),
-    med_pieff = median(pi.effsize),
-    med_watdiff = median(watterson.diff),
-    med_watret = median(watterson.retained),
-    med_watz = median(watterson.z),
-    med_wateff = median(watterson.effsize),
-    med_tajdiff = median(tajima.diff),
-    med_tajret = median(tajima.retained),
-    med_tajz = median(tajima.z),
-    med_tajeff = median(tajima.effsize)
-  )
-
-theta_table$elapsed <- as.numeric(theta_table$modyear) - as.numeric(theta_table$histyear)
-theta_table$pi.ret.peryr <- exp(
-  log(theta_table$med_piret) / theta_table$elapsed
-)
-theta_table$wat.ret.peryr <- exp(
-  log(theta_table$med_watret) / theta_table$elapsed
-)
-
-theta_table$pi.ret.100yr <- (theta_table$pi.ret.peryr^100) * 100
-theta_table$wat.ret.100yr <- (theta_table$wat.ret.peryr^100) * 100
-
-write.table(theta_table, "../tables/theta_stats.tsv",
-  row.names = FALSE, quote = FALSE, sep = "\t"
-)
 ```
 
 ## Inbreeding coefficients
 
-Next, we read in the inbreeding coefficients calculated from runs of
-homozygosity > 100kb in each sample. For these, genotypes are called per sample,
-only including genotypes with sequencing depth >=6 and an allelic balance from
-0.2-0.8 for heterozygous genotypes. Only samples with >5X average sequencing
-depth in the filtered region are included.
-
-Each species then has all samples merged, removing variants fixed across the
-dataset, as well as SNPs within 5bp of indels along with indels themselves.
-Finally, to account for DNA damage, all transition variants are removed. These
-variants are then run through bcftools roh to estimate IBD tracts, using a
-rough species specific recombination rate (assuming 50cM per chr), setting a
-default minor allele frequency, and ignoring homozygous reference genotypes.
-This pattern of filtering mimics how bcftools would handle a single sample roh
-analysis, but with the benefit of allowing removal of variants fixed in the
-dataset as homozygous alternate. These variants can skew roh estimation, as they
-likely are not segregating in the sample area, but will be treated as having
-a default minor allele frequency of 0.4, which would create a bias in the model
-based on how diverged the sample set is from the reference.
-
 ```{r}
-#| label: read-froh
+#| label: froh-table
 
 froh_all <- c()
 
@@ -494,13 +208,13 @@ for (i in c(1:length(species))) {
   g <- genomes[i]
   froh <- fread(
     paste0(
-      "../angsd/results/datasets/historical-",
+      "../analyses/results/datasets/historical-",
       s,
-      "-notrans/plots/inbreeding/historical-",
+      "-vg-notrans/plots/inbreeding/historical-",
       s,
-      "-notrans.",
+      "-vg-notrans.",
       g,
-      "_all.dp5_allsites-filts.filtered_mindp4-biallelic.notrans.fmiss0.2.bcftools.ind_froh.tsv"
+      "_all.dp6_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.bcftools.ind_froh.tsv"
     ),
     header = TRUE,
     sep = "\t",
@@ -509,6 +223,8 @@ for (i in c(1:length(species))) {
   froh$species <- s
   froh_all <- rbind(froh_all, froh)
 }
+
+froh_all <- froh_all[froh_all$sample %in% hz_all$sample, ]
 
 froh_all$year <- str_sub(froh_all$population, -4, -1)
 froh_all$region <- str_sub(froh_all$population, 1, -5)
@@ -531,39 +247,57 @@ froh_all$region <- factor(
   labels = c("W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "N Småland", "Öland")
 )
 
-froh_stats <- c()
+froh_all$region_group <- froh_all$region
+froh_all[froh_all$region_group == "SW Skåne", ]$region_group <- "W Skåne"
+froh_all[froh_all$region_group == "SE Skåne", ]$region_group <- "E Skåne"
 
-for (i in c(1:length(species))) {
-  s <- c("Po. icarus", "Pl. argus", "Cy. semiargus")[i]
-  mod <- froh_all[froh_all$species == s & froh_all$time == "Modern", ]$Froh
-  hist <- froh_all[froh_all$species == s & froh_all$time == "Historical", ]$Froh
-  stat <- t.test(mod, hist)
-  row <- c(
-    s,
-    stat$estimate[1],
-    stat$estimate[2],
-    stat$method,
-    stat$estimate[1] - stat$estimate[2],
-    stat$conf.int,
-    stat$statistic,
-    stat$p.value
-  )
-  froh_stats <- rbind(froh_stats, row)
-}
+froh_table <- froh_all[, c(
+  "sample", "species", "time", "population", "Froh"
+)]
 
-colnames(froh_stats) <- c(
-  "Species", "Mean Froh >100kb (Modern)", "Mean Froh >100kb (Historical)",
-  "Method", "Mean change Froh (Modern-Historical)", "CI (Lower)", "CI (Upper)",
-  "t-value", "p-value"
-)
-
-write.table(froh_stats,
-  file = "../tables/froh_stats.tsv", quote = FALSE,
-  sep = "\t", row.names = FALSE
+write.table(froh_table, "../tables/froh_ests.tsv",
+  row.names = FALSE, quote = FALSE, sep = "\t"
 )
 ```
 
-Plot these the same way as heterozygosity.
+
+```{r}
+#| label: stats-froh
+
+froh_means <- froh_all %>%
+  group_by(species, population) %>%
+  do(
+    data.frame(
+      rbind(
+        Hmisc::smean.cl.boot(.$Froh, B = 1000)
+      )
+    )
+  )
+
+write.table(froh_means, "../tables/froh_means.tsv",
+  row.names = FALSE, quote = FALSE, sep = "\t"
+)
+
+froh_stats <- c()
+
+for (s in species_names) {
+  hist <- mean(froh_all[froh_all$species == s & froh_all$time == "Historical", ]$Froh)
+  mod <- mean(froh_all[froh_all$species == s & froh_all$time == "Modern", ]$Froh)
+  model <- lme(Froh ~ time, random = ~1|region_group, data = froh_all[froh_all$species == s, ])
+  tidyed <- tidy(model, conf.int = TRUE, effects = "fixed")
+  tidydf <- tidyed[2, c(3,4,6,7,8,9)]
+  tidydf$hist.mean <- hist
+  tidydf$mod.mean <- mod
+  tidydf <- round(tidydf, 5)
+  tidydf$species <- s
+  tidydf <- tidydf[ , c(9, 7, 8, 1, 2, 3, 5, 6, 4)]
+  froh_stats <- rbind(froh_stats, tidydf)
+}
+
+write.table(froh_stats, "../tables/froh_stats.tsv",
+  row.names = FALSE, quote = FALSE, sep = "\t"
+)
+```
 
 ```{r}
 #| label: fig-froh-box
@@ -587,31 +321,136 @@ frohbox <- ggplot(froh_all, aes(x = time, y = Froh)) +
     values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
     name = "Geographic Region"
   ) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.20))) +
-  geom_pwc(hide.ns = TRUE, label = "p.signif", method = "t.test") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.1),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  geom_signif(
+    data = froh_all[froh_all$species == "Cy. semiargus", ],
+    comparisons = list(c("Historical", "Modern")),
+    annotations="**"
+  ) +
   theme_bw() +
   theme(
-    legend.position.inside = c(0.08, 0.35),
+    legend.position = "none",
     panel.grid = element_blank(),
     axis.title.x = element_blank(),
     axis.title.y = element_markdown(),
     strip.text.x = element_text(size = 10, face = "italic")
   )
-
-frohbox
 ```
 
+```{r}
+#| label: fig-roh-adj-het
+#| fig-width: 5
+#| fig-height: 7
+
+adj_hz <- merge(froh_all, hz_all)
+
+adj_hz$adj_hz <- adj_hz$hetperbp * 1000 / (1 - adj_hz$Froh)
+
+roh_het <- adj_hz[ , c("sample", "population", "time", "species", "region")]
+roh_het2 <- roh_het
+roh_het$het <- adj_hz$hetperbp * 1000
+roh_het$type <- "Including RoH"
+roh_het2$het <- adj_hz$adj_hz
+roh_het2$type <- "Excluding RoH"
+roh_het <- rbind(roh_het, roh_het2)
+
+roh_het$type <- factor(roh_het$type,
+levels = c("Including RoH", "Excluding RoH"))
+
+ggplot(roh_het, aes(x = time, y = het)) +
+  facet_grid(rows = vars(species), cols = vars(type), scales = "free_y") +
+  geom_boxplot(
+    aes(x = time, y = het),
+    inherit.aes = FALSE,
+    outliers = FALSE
+  ) +
+  geom_point(
+    aes(color = region, shape = time),
+    position = position_jitterdodge(jitter.width = 0.05)
+  ) +
+  scale_shape_manual(values = c(17, 16), guide = "none") +
+  ylab("<span style='font-size: 9pt'>Heterozygous sites per 1000bp</span><br><span style='font-size: 7pt'>(excl. transitions)</span>") +
+  scale_y_continuous(
+    labels = number_format(accuracy = 0.1),
+    expand = expansion(mult = c(0.05, 0.20))
+  ) +
+  scale_color_manual(
+    values = c("#244F6E", "#244F6E", "#658399", "#658399", "#8A2A3B", "#fecd03"),
+    name = "Geographic Region"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_markdown(),
+    strip.text.y = element_text(size = 10, face = "italic")
+  )
+
+ggsave("../figures/suppfig-roh-adj-het.png", dpi = 300, create.dir = TRUE)
+```
+
+## Nucleotide diversity
+
+```{r}
+#| label: tbl-pi
+#| eval: true
+
+pi_all <- c()
+
+# read in F_ST results for population pairs
+for (i in c(1:length(species))) {
+  s <- species[i]
+  g <- genomes[i]
+  nucdiv <- fread(
+    paste0(
+      "../analyses/results/datasets/historical-",
+      s,
+      "-vg-notrans/analyses/pixy/historical-",
+      s,
+      "-vg-notrans.",
+      g,
+      "_all.dp6_allsites-filts.filtered_mindp5-allsites-jointcall_allbal0.21-0.79.notrans.fmiss0.3/pixy_pi.txt"
+    ),
+    header = TRUE,
+    sep = "\t",
+  )
+  nucdiv$species <- s
+  pi_all <- rbind(pi_all, nucdiv)
+}
+
+# Summarize Fst results per pair
+pi_all <- pi_all %>%
+  group_by(species, pop) %>%
+  do(data.frame(rbind(Hmisc::smean.cl.boot(.$avg_pi, B = 10000))))
+
+# Read in sampling info, including coordinates
+regions <- read.table("../config/pop_groups.tsv", header = TRUE)
+
+# Merge sampling info with F_ST data
+pi_all <- merge(pi_all, regions, by.x = "pop", by.y = "population")
+
+pi_all$species <- factor(
+  pi_all$species,
+  levels = species,
+  labels = species_names
+)
+
+write.table(pi_all,
+  file = "../tables/pi_ests.tsv", sep = "\t",
+  quote = FALSE, row.names = FALSE
+)
+```
 
 ## Population differention using *F~ST~*
 
-As a measure of population differentiation, we use pairwise population *F*~ST~.
-This is estimated in ANGSD using the Bhatia estimator, which is more robust to
-lower sample sizes. We compare these values within species, visualizing as a
-difference in *F*~ST~ between equivalent historical and modern population pairs,
-including their geographic distance in the visualization.
-
 ```{r}
 #| label: tbl-fst
+#| eval: true
 
 fst_all <- c()
 
@@ -619,34 +458,32 @@ fst_all <- c()
 for (i in c(1:length(species))) {
   s <- species[i]
   g <- genomes[i]
-  for (d in c("", ".dp3")) {
-    fst <- fread(
-      paste0(
-        "../angsd/results/datasets/historical-",
-        s,
-        "-notrans/analyses/fst/historical-",
-        s,
-        "-notrans.",
-        g,
-        "_poppairs",
-        d,
-        "_allsites-filts.fst.global.tsv"
-      ),
-      header = TRUE,
-      sep = "\t",
-      select = c("pop1", "pop2", "unweight.fst", "weight.fst")
-    )
-    fst$pop2 <- sapply(
-      fst$pop2,
-      function(x) str_split(x, "\\.")[[1]][1]
-    )
-    fst$species <- s
-    fst$dp <- d
-    fst_all <- rbind(fst_all, fst)
-  }
+  fst <- fread(
+    paste0(
+      "../analyses/results/datasets/historical-",
+      s,
+      "-vg-notrans/analyses/pixy/historical-",
+      s,
+      "-vg-notrans.",
+      g,
+      "_all.dp6_allsites-filts.filtered_mindp5-allsites-jointcall_allbal0.21-0.79.notrans.fmiss0.3/pixy_fst.txt"
+    ),
+    header = TRUE,
+    sep = "\t",
+  )
+  fst$species <- s
+  fst_all <- rbind(fst_all, fst)
 }
 
 fst <- fst_all
+
+# Set negative Fst to 0
+fst[fst$avg_hudson_fst < 0, ]$avg_hudson_fst <- 0
+
+# Summarize Fst results per pair
+fst <- fst %>%
+  group_by(species, pop1, pop2) %>%
+  do(data.frame(rbind(Hmisc::smean.cl.boot(.$avg_hudson_fst, B = 10000))))
 
 # Read in sampling info, including coordinates
 regions <- read.table("../config/pop_groups.tsv", header = TRUE)
@@ -662,15 +499,14 @@ fst$pair <- paste0(fst$region.x, "-", fst$region.y)
 fst$time <- "placeholder"
 fst[fst$year.x < 2000, ]$time <- "historical"
 fst[fst$year.x > 2000, ]$time <- "modern"
+
 # Calculate distance between population pairs
 fst$dist <- as.vector(
   apply(
     fst[, c("lon.x", "lat.x", "lon.y", "lat.y")], 1, function(x) distm(c(x[1], x[2]), c(x[3], x[4]), fun = distGeo)
   )
 )
-# Set F_ST < 0 to 0 (this comes from the optimization in ANGSD and doesn't have
-# any biological meaning different than 0)
-fst$weight.fst[fst$weight.fst < 0] <- 0
+
 # Remove pairs where populations contain single samples
 fst <- fst[!fst$pop2 %in% c("ESkane1917", "WSkane1943"), ]
 fst <- fst[!fst$pop1 %in% c("ESkane1917", "WSkane1943"), ]
@@ -691,102 +527,21 @@ write.table(fst,
   file = "../tables/fst_ests.tsv", sep = "\t",
   quote = FALSE, row.names = FALSE
 )
-
-fst_stats <- c()
-
-for (i in c(1:length(species))) {
-  s <- c("Po. icarus", "Pl. argus", "Cy. semiargus")[i]
-  for (d in c("", ".dp3")) {
-    hist <- fst[fst$species == s & fst$time == "Historical" & fst$dp == d, ]
-    mod <- fst[fst$species == s & fst$time == "Modern" & fst$dp == d, ]
-    if ((nrow(hist) > 1) & nrow(mod) > 1) {
-      unpaired <- t.test(mod$weight.fst, hist$weight.fst)
-      unpairrow <- c(
-        s,
-        d,
-        "All population pairs",
-        unpaired$method,
-        unpaired$estimate[1] - unpaired$estimate[2],
-        unpaired$conf.int,
-        unpaired$statistic,
-        unpaired$p.value
-      )
-    } else {
-      unpairrow <- c(
-        s,
-        d,
-        "All population pairs",
-        paste0(
-          "Insufficient population pairs (Modern = ",
-          nrow(mod),
-          ", Historical = ",
-          nrow(hist),
-          ")"
-        ),
-        mean(mod$weight.fst) - mean(hist$weight.fst),
-        NA,
-        NA,
-        NA,
-        NA
-      )
-    }
-    fst_stats <- rbind(fst_stats, unpairrow)
-    df <- merge(mod, hist, by = "pair")
-    if (nrow(df) > 1) {
-      paired <- t.test(df$weight.fst.x, df$weight.fst.y, paired = TRUE)
-      pairrow <- c(
-        s,
-        d,
-        "Pairs in both mod and hist",
-        paired$method,
-        paired$estimate,
-        paired$conf.int,
-        paired$statistic,
-        paired$p.value
-      )
-    } else {
-      pairrow <- c(
-        s,
-        d,
-        "Pairs in both mod and hist",
-        paste0(
-          "Insufficient population pairs in both time periods (N = ",
-          nrow(df),
-          ")"
-        ),
-        mean(df$weight.fst.x) - mean(df$weight.fst.y),
-        NA,
-        NA,
-        NA,
-        NA
-      )
-    }
-    fst_stats <- rbind(fst_stats, pairrow)
-  }
-}
-
-colnames(fst_stats) <- c(
-  "Species", "Depth", "Pairing", "Method",
-  "Mean Difference (Modern-Historical)", "CI (lower)", "CI (upper)", "t-value",
-  "p-value"
-)
-
-write.table(fst_stats,
-  file = "../tables/fst_stats.tsv", sep = "\t",
-  row.names = FALSE, quote = FALSE
-)
 ```
 
 ```{r}
 #| label: fig-fst-box
 #| fig-width: 6
 #| fig-height: 2.5
+#| eval: true
 
 fstplot <- ggplot(
-  fst[fst$dp == ".dp3", ],
+  fst,
   aes(
     x = time,
-    y = weight.fst,
+    y = Mean,
+    ymax = Upper,
+    ymin = Lower,
     group = pair,
     col = dist / 1000,
     label = paste0(round(dist / 1000, 1), " km")
@@ -795,23 +550,21 @@ fstplot <- ggplot(
   geom_line(linewidth = 0.5) +
   geom_point(aes(shape = time), size = 2.5) +
   scale_shape_manual(values = c(17, 16), guide = "none") +
-  # geom_text_repel() +
   facet_grid(cols = vars(species)) +
   theme_bw() +
   scale_color_gradient(
     low = "#55AFF4", high = "#132C44",
     name = "Distance (km)"
   ) +
-  ylab("<span style='font-size: 9pt'>Weighted *F~ST~*</span>") +
+  ylab("<span style='font-size: 9pt'>Hudson *F~ST~*</span>") +
   scale_y_continuous(
-    labels = number_format(accuracy = 0.01),
-    limits = c(0, 0.12)
+    labels = number_format(accuracy = 0.01)
   ) +
   guides(
     colour = guide_colourbar(position = "inside")
   ) +
   theme(
-    legend.background = element_rect(color = "black", size = 0.2),
+    # legend.background = element_rect(color = "black", size = 0.2),
     legend.title = element_text(size = 8),
     legend.text = element_text(size = 7),
     legend.key.size = unit(0.4, "cm"),
@@ -821,37 +574,19 @@ fstplot <- ggplot(
     axis.title.y = element_markdown(),
     strip.text = element_text(face = "italic", size = 10)
   )
-
-fstplot
 ```
 
-
 ## Make Figure 1
-
-We use cowplot in R to arrange these figures to produce a final figure for the
-manuscript. This figure also includes a map prepared in QGIS and photos I've
-taken of the butterflies.
 
 ```{r}
 #| label: fig-diversity
 #| fig-width: 10.5
 #| fig-height: 7
+#| eval: true
 
-arrhz <- hzbox +
-  theme(
-    legend.position = "none"
-    # axis.text.x = element_blank(),
-    # plot.margin = unit(c(0, 0, 0, 0), "cm")
-  )
+arrhz <- hzbox
 
-arrfroh <- frohbox +
-  theme(
-    legend.position = "none"
-    # axis.text.x = element_blank(),
-    # strip.text.x = element_blank(),
-    # strip.background = element_blank(),
-    # plot.margin = unit(c(0, 0, 0, 0), "cm")
-  )
+arrfroh <- frohbox
 
 arrfst <- fstplot
 
@@ -900,4 +635,153 @@ plot_grid(map_photos,
 ) + bgcolor("white")
 
 ggsave("../figures/fig-diversity.png", dpi = 600, create.dir = TRUE)
+ggsave("../figures/fig-diversity.svg", dpi = 600, create.dir = TRUE)
+```
+
+```{r}
+#| label: fig-sims
+#| fig-width: 7
+#| fig-height: 6
+
+hz_means$year <- str_sub(hz_means$population, -4, -1)
+hz_means$region <- str_sub(hz_means$population, 1, -5)
+froh_means$year <- str_sub(froh_means$population, -4, -1)
+froh_means$region <- str_sub(froh_means$population, 1, -5)
+
+sims <- c()
+
+for (i in 1:length(species)) {
+  sn <- species_names[i]
+  s <- species[i]
+  sdf <- hz_means[hz_means$species == sn, ]
+  regs <- unique(sdf$region)
+  for (r in regs) {
+    if (r == "SESkane") {
+    } else if (r == "SWSkane") {
+      histh <- sdf[sdf$region == "WSkane" & sdf$year < 2000, ]$Mean
+      histy <- sdf[sdf$region == "WSkane" & sdf$year < 2000, ]$year
+      modh <- sdf[sdf$region == "SWSkane", ]$Mean
+      mody <- sdf[sdf$region == "SWSkane", ]$year
+      region <- r
+      row <- c(s, sn, region, mody, histy, modh/histh)
+      sims <- rbind(sims, row)
+    } else if (r == "WSkane" & s == "pargus") {
+    } else {
+      histh <- sdf[sdf$region == r & sdf$year < 2000, ]$Mean
+      histy <- sdf[sdf$region == r & sdf$year < 2000, ]$year
+      modh <- sdf[sdf$region == r & sdf$year > 2000, ]$Mean
+      mody <- sdf[sdf$region == r & sdf$year > 2000, ]$year
+      region <- r
+      row <- c(s, sn, region, mody, histy, modh/histh)
+      sims <- rbind(sims, row)
+    }
+  }
+}
+
+sims <- data.frame(sims)
+colnames(sims) <- c("species", "species_name", "region", "modyear", "histyear", "hetratio")
+
+simdata <- c()
+
+for (i in 1:nrow(sims)) {
+  base <- paste(
+    sims[i, 1], sims[i, 3], sims[i, 4], sims[i, 5], sep = "-"
+  )
+  sim <- read.table(
+    paste0(
+      "../sims/exclfirst/",
+      base,
+      ".tsv"
+    )
+  )
+  sim$species <- sims[i, 1]
+  sim$region <- sims[i, 3]
+  sim$hetratio <- sim$V2
+  sim$modFroh <- sim$V5
+  sim$adjHetRatio <- sim$V3
+  simdata <- rbind(simdata, sim[ , c("species", "region", "hetratio", "modFroh", "adjHetRatio")])
+}
+
+sims[, "hetratio"] <- as.numeric(sims[, "hetratio"])
+sims$species <- sims$species_name
+
+froh_means
+froh_mod <- froh_means[froh_means$year > 2000, ]
+
+simdata$species <- factor(
+  simdata$species,
+  levels = species,
+  labels = species_names
+)
+
+
+sims$species <- factor(
+  sims$species,
+  levels = species_names,
+  labels = species_names
+)
+
+hetratio <- simdata %>%
+  group_by(species, region) %>%
+  summarise(
+    min = min(hetratio),
+    q25 = quantile(hetratio, 0.25),
+    q50 = quantile(hetratio, 0.50),
+    q75 = quantile(hetratio, 0.75),
+    max = max(hetratio)
+  )
+
+modFroh <- simdata %>%
+  group_by(species, region) %>%
+  summarise(
+    min = min(modFroh),
+    q25 = quantile(modFroh, 0.25),
+    q50 = quantile(modFroh, 0.50),
+    q75 = quantile(modFroh, 0.75),
+    max = max(modFroh)
+  )
+
+adjHetRatio <- simdata %>%
+  group_by(species, region) %>%
+  summarise(
+    min = min(adjHetRatio),
+    q25 = quantile(adjHetRatio, 0.25),
+    q50 = quantile(adjHetRatio, 0.50),
+    q75 = quantile(adjHetRatio, 0.75),
+    max = max(adjHetRatio)
+  )
+
+sims <- sims[sims$region != "SESkane", ]
+froh_mod <- froh_mod[froh_mod$region != "SESkane", ]
+
+hetsim <- ggplot(sims, aes(x = region, y = hetratio)) +
+  geom_violin(data = simdata) +
+  geom_point(color = "red", size = 3) +
+  facet_grid(cols = vars(species), scales = "free_x") +
+  ylab("Proportion retained heterozygosity") +
+  theme_bw() +
+  theme(
+    strip.text.x = element_text(size = 10, face = "italic"),
+    axis.title.x = element_blank()
+  )
+
+frohsim <- ggplot(froh_mod, aes(x = region, y = Mean)) +
+  geom_violin(data = simdata, aes(y = modFroh)) +
+  geom_point(color = "red", size = 3) +
+  facet_grid(cols = vars(species), scales = "free_x") +
+  ylab("Mean modern *F~RoH~*") +
+  theme_bw() +
+  theme(
+    strip.text.x = element_text(size = 10, face = "italic"),
+    axis.title.y = element_markdown(),
+    axis.title.x = element_blank()
+  )
+
+plot_grid(
+  hetsim,
+  frohsim,
+  ncol = 1
+)
+
+ggsave("../figures/suppfig-sims.png", dpi = 600)
 ```
