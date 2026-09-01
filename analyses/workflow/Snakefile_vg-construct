@@ -5,7 +5,8 @@ This is the snakefile just for constructing the variation graph. It goes first
 pretty much. It'll map the modern samples with BWA, call variants, then
 construct a graph from the reference and the variants. Then, the main workflow
 can be run and the modern and historical samples will both use this as a
-reference.
+reference. Use by passing the `--snakefile workflow/Snakefile_vg-construct`
+option to Snakemake.
 """
 
 min_version("7.32.0")
@@ -48,6 +49,7 @@ wildcard_constraints:
 if len(angsd.samples.index.tolist()) > 0:
 
     rule all:
+        default_target: True
         input:
             rules.popglen_all.input,
             expand(
@@ -58,11 +60,11 @@ if len(angsd.samples.index.tolist()) > 0:
                 ],
                 ref=config["reference"]["name"],
             ),
-        default_target: True
 
 else:
 
     rule all:
+        default_target: True
         input:
             expand(
                 [
@@ -72,4 +74,3 @@ else:
                 ],
                 ref=config["reference"]["name"],
             ),
-        default_target: True

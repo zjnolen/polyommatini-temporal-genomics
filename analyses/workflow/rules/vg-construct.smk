@@ -3,7 +3,8 @@ This Snakefile contains all the rules related to constructing the variant graph
 with vg and then mapping the samples to it. These rules are run only
 when the variant graph is constructed, which is a single Snakemake run using
 only the modern samples for a species, which have been mapped with bwa mem. This
-is done with a separate snakefile `Snakefile_vg-construct` to the main workflow.
+is done with a separate snakefile `Snakefile_vg-construct` to the main workflow,
+which is called with the `--snakefile workflow/Snakefile_vg-construct` option.
 """
 
 
