@@ -1,3 +1,12 @@
+"""
+Rules for running the GONE analysis, which infers effective population size
+trajectories back in time. It uses a configured VCF file as input, in this case,
+I used the VCFs used to make the variation graphs as they contained all modern
+samples and were called at full sequencing depth. This is one of the more hard
+coded set of rules, as the population names are hard coded in the last rule.
+"""
+
+
 rule bcftools_subset:
     input:
         vcf=config["gone_input_bcf"],
@@ -41,10 +50,10 @@ rule bcf2ped:
         ),
     container:
         "docker://quay.io/biocontainers/plink:1.90b6.18--h779adbc_1"
-    params:
-        pre=lambda w, output: os.path.splitext(output.ped)[0],
     resources:
         runtime=lambda wildcards, attempt: attempt * 360,
+    params:
+        pre=lambda w, output: os.path.splitext(output.ped)[0],
     shell:
         """
         plink --vcf {input.vcf} --allow-extra-chr --recode --out {params.pre}
