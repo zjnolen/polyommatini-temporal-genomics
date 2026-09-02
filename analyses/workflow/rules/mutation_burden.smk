@@ -1,3 +1,13 @@
+"""
+Calculates genomic proxies for genetic load through estimates of burden of
+putatively deleterious muations. This is primarily done as a derived count of
+alleles that alter gene function (missense, loss of function), or change a
+highly conserved SNP (using GERP scores). It requires GenErode's output for
+estimating GERP scores to get GERP scores and ancestral states, these paths go
+in the config.yaml.
+"""
+
+
 rule gerp_noN:
     """
     Remove Ns from the GERP scores file. This just makes it faster to load as
@@ -44,14 +54,12 @@ rule vep_annotate_vars:
         out="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.vep-annotated.txt",
         html="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.vep-annotated.txt_summary.html",
         warnings="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.vep-annotated.txt_warnings.txt",
-    conda:
-        "../envs/vep.yaml"
     resources:
         runtime="4d",
     shell:
         """
-        bcftools view -Ov {input.bcf} | \
-        vep --fasta {input.ref} --gff {input.gff} --format vcf \
+        singularity exec -B /cfs/klemming docker://quay.io/biocontainers/bcftools:1.19--h8b25389_1 bcftools view -Ov {input.bcf} | \
+        singularity exec -B /cfs/klemming docker://quay.io/biocontainers/ensembl-vep:112.0--pl5321h2a3209d_0 vep --fasta {input.ref} --gff {input.gff} --format vcf \
             --flag_pick --force_overwrite -o {output.out}
         """
 
@@ -96,9 +104,8 @@ rule bcf2csv:
 
 rule calc_mutation_burden:
     """
-    Estimates counts of alleles per sample for different variant classes (VEP
-    and GERP based). Includes counts when assuming all alternates are
-    deleterious or only derived alternates.
+    Estimates counts of alternate and derived alleles per sample for different
+    variant classes (VEP and GERP based)
     """
     input:
         vep="results/datasets/{dataset}/analyses/vep/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.vep-effects.txt",
@@ -109,9 +116,9 @@ rule calc_mutation_burden:
     output:
         varcounts="results/datasets/{dataset}/analyses/burden/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.varimpacts.tsv",
         varcounts_anc="results/datasets/{dataset}/analyses/burden/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.varimpacts_anc.tsv",
-    threads: 24
     conda:
         "../envs/r.yaml"
+    threads: 24
     resources:
         runtime="6h",
     params:
