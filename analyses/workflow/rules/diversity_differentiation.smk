@@ -1,3 +1,9 @@
+"""
+Rules for estimating genetic diversity and differentiation through heterozygous
+site counting in the VCFs and Pixy for the rest.
+"""
+
+
 localrules:
     calc_heterozygosity,
     pixy_poplist,
@@ -56,16 +62,16 @@ rule pixy:
         pi="results/datasets/{dataset}/analyses/pixy/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}/pixy_pi.txt",
         fst="results/datasets/{dataset}/analyses/pixy/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}/pixy_fst.txt",
         dxy="results/datasets/{dataset}/analyses/pixy/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}/pixy_dxy.txt",
-    params:
-        winsize=50000,
     conda:
         "../envs/pixy.yaml"
     threads: 10
     resources:
         runtime="6h",
+    params:
+        winsize=50000,
     shell:
         """
         pixy --stats pi fst dxy --vcf {input.vcf} --populations {input.pops} \
-            --window_size {params.winsize} --fst_type hudson \
+            --window_size {params.winsize} --fst_type hudson --n_cores {threads} \
             --output_folder {output.fold}
         """
