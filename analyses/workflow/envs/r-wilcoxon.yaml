@@ -1,6 +1,0 @@
-channels:
-  - conda-forge
-  - bioconda
-dependencies:
-  - r-base =4.2.*
-  - r-rcompanion =2.4.36
