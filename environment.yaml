@@ -1,22 +1,26 @@
-name: r-plotting
-
 channels:
   - conda-forge
   - bioconda
-
 dependencies:
-  - r-base =4.3
-  - radian
-  - r-httpgd
-  - r-languageserver
-  - r-ggplot2
-  - r-ggpubr
-  - r-ggtext
-  - r-dplyr
-  - r-geosphere
-  - r-svglite
-  - r-Hmisc
-  - r-ggimage
-  - r-ggh4x
-  - r-patchwork
-  - r-rsvg
+  - r-base=4.3.3
+  - r-bootstrap=2019.6
+  - r-broom.mixed=0.2.9.6
+  - r-coin=1.4_3
+  - r-dplyr=1.1.4
+  - r-geosphere=1.5_20
+  - r-ggh4x=0.2.8
+  - r-ggimage=0.3.3
+  - r-ggplot2=3.5.1
+  - r-ggpubr=0.6.0
+  - r-ggtext=0.1.2
+  - r-hmisc=5.2_0
+  - r-httpgd=1.3.1
+  - r-languageserver=0.3.16
+  - r-lmperm=2.1.4
+  - r-lmtest=0.9_40
+  - r-mumin=1.48.4
+  - r-patchwork=1.3.0
+  - r-perm=1.0_0.4
+  - r-rsvg=2.6.1
+  - r-svglite=2.1.3
+  - radian=0.6.13

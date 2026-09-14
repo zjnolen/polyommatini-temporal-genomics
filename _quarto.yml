@@ -1,19 +1,5 @@
 project:
-  type: manuscript
-
-execute:
-  freeze: false
-
-toc: false
-
-format:
-  html: default
-  docx:
-    reference-doc: custom-reference-doc.docx
-  pdf: default
+  type: website
+  output-dir: docs
 
 fig-dpi: 600
-
-
-bibliography: references.bib
-csl: https://raw.githubusercontent.com/citation-style-language/styles/master/pnas.csl

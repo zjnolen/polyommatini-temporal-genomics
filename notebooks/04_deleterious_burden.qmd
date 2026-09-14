@@ -1,9 +1,11 @@
 ---
-title: "Deleterious burden"
+title: "Putatively deleterious mutation burden"
 format:
-  html:
-    code-fold: true
+  html: default
 ---
+
+This notebook contains the code used to make tables and figures relating to
+putative deleterious mutation burden.
 
 ```{r}
 #| label: load-packages
@@ -22,17 +24,34 @@ library(ggh4x) # For nested ggplot facets
 library(cowplot) # For arranging plots
 library(broom.mixed)
 library(nlme)
+library(bootstrap)
 
 species <- c("picarus", "pargus", "csemiargus")
 species_names <- c("Po. icarus", "Pl. argus", "Cy. semiargus")
 genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 ```
 
-## Deleterious mutation burden
+## Putatively deleterious mutation burden
+
+### Derived count statistics and table
+
+In this study as a genomic proxy for genetic load, we used the derived count of
+putatively deleterious mutations. The main workflow provides this output as a
+table of derived allele counts at different position categories, including
+counts in homozygous state in particular. We first compile these counts into
+derived counts / 1000 genotyped positions to make them comparable across samples
+with variable missingness. We calculate means of these counts for each mutation
+category both for the total count and homozygous count. Then we performa linear
+mixed models with derived count as a response to sampling time period, with
+sampling region as a random factor. We also get confidence intervals around the
+mean counts with jackknifing.
 
 ```{r}
 #| label: stats-burden
 
+# read in the derived count tables as output by the workflow, using the one
+# that is polarized by the inferred ancestral states. read in Froh estimates
+# as well to associate them later
 varcounts_all <- c()
 froh_all <- c()
 
@@ -102,47 +121,52 @@ varcounts_all$region_group <- varcounts_all$region
 varcounts_all[varcounts_all$region_group == "SW Skåne", ]$region_group <- "W Skåne"
 varcounts_all[varcounts_all$region_group == "SE Skåne", ]$region_group <- "E Skåne"
 
-# varcounts_means <- varcounts_all %>%
-#   group_by(species, population) %>%
-#   do(
-#     data.frame(
-#       rbind(
-#         Hmisc::smean.cl.boot(.$Froh, B = 1000)
-#       )
-#     )
-#   )
-
-# write.table(froh_means, "../tables/froh_means.tsv",
-#   row.names = FALSE, quote = FALSE, sep = "\t"
-# )
-
+# perform linear models for derived count as a response to time period across
+# relevant categories of mutations. these include putatively deleterious
+# categories (high impact, moderate impact, conserved) as well as putatively
+# neutral categories (low impact, intergenic) as a control. always normalize
+# by total genotype count (nsites)
 varcounts_stats <- c()
 
 for (s in species_names) {
   for (i in c("gerp_n", "high", "mod", "low", "inter", "gerp_hom_n", "high_hom", "mod_hom", "low_hom", "inter_hom")) {
     hist <- mean(varcounts_all[varcounts_all$species == s & varcounts_all$time == "Historical", i] * 1000 / varcounts_all[varcounts_all$species == s & varcounts_all$time == "Historical", "nsites"])
     mod <- mean(varcounts_all[varcounts_all$species == s & varcounts_all$time == "Modern", i] * 1000 / varcounts_all[varcounts_all$species == s & varcounts_all$time == "Modern", "nsites"])
-    ratio <- mod/hist
-    model <- lme(as.formula(paste0(i, " * 1000 / nsites ~ time")), random = ~1|region_group,
+    ratio <- mod / hist
+    model <- lme(as.formula(paste0(i, " * 1000 / nsites ~ time")),
+      random = ~ 1 | region_group,
       data = varcounts_all[varcounts_all$species == s, ]
     )
     tidyed <- tidy(model, conf.int = TRUE, effects = "fixed")
-    tidydf <- tidyed[2, c(3,4,6,7,8,9)]
+    tidydf <- tidyed[2, c(3, 4, 6, 7, 8, 9)]
     tidydf$hist.mean <- hist
+    jackknife <- quantile(jackknife(varcounts_all[varcounts_all$species == s & varcounts_all$time == "Historical", i] * 1000 / varcounts_all[varcounts_all$species == s & varcounts_all$time == "Historical", "nsites"], mean)$jack.values, c(0.025, 0.975))
+    tidydf$hist.low.jk.ci <- jackknife[1]
+    tidydf$hist.high.jk.ci <- jackknife[2]
     tidydf$mod.mean <- mod
+    jackknife <- quantile(jackknife(varcounts_all[varcounts_all$species == s & varcounts_all$time == "Modern", i] * 1000 / varcounts_all[varcounts_all$species == s & varcounts_all$time == "Modern", "nsites"], mean)$jack.values, c(0.025, 0.975))
+    tidydf$mod.low.jk.ci <- jackknife[1]
+    tidydf$mod.high.jk.ci <- jackknife[2]
     tidydf$`mod/hist` <- ratio
     tidydf <- round(tidydf, 5)
     tidydf$species <- s
-    tidydf <- tidydf[ , c(10, 7, 8, 9, 1, 2, 3, 5, 6, 4)]
+    tidydf <- tidydf[, c(14, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 5, 6, 4)]
     tidydf$type <- i
     varcounts_stats <- rbind(varcounts_stats, tidydf)
   }
 }
 
+# write out Table S11
 write.table(varcounts_stats, "../tables/burden_stats.tsv",
   row.names = FALSE, quote = FALSE, sep = "\t"
 )
 ```
+
+### Derived count main boxplots
+
+The next block plots boxplots for each mutation category comparing historical
+derived counts with moderns. A separate panel is made for each species, and
+plots are grouped by total and homozygous derived count.
 
 ```{r}
 #| label: fig-burden
@@ -289,6 +313,12 @@ gerp_hom <- ggplot(varcounts_all, aes(x = time, y = gerp_hom_n * 1000 / nsites))
   )
 ```
 
+## Inbreeding coefficients partitiond by RoH size
+
+To visualize how much of the inbreeding coefficient was composed by runs of
+homozygosity by different lengths, we plotted them as bars colored by the
+proportion coming from different size classes.
+
 ```{r}
 #| label: fig-csemiargus-roh
 
@@ -299,7 +329,8 @@ colnames(rohs) <- c(
   "inform_sites", "phred"
 )
 
-rohs <- rohs[rohs$length >= 100000 & rohs$phred >= 85, ]
+# exclude ROH < 200kb and < 30 Pherd score
+rohs <- rohs[rohs$length >= 200000 & rohs$phred >= 30, ]
 
 nroh <- rohs %>%
   group_by(sample) %>%
@@ -310,6 +341,7 @@ inds <- read.table(
   header = TRUE
 )
 
+# drop uncalled sample from ind list for sample looping
 inds <- inds[inds$sample != "MZLU152765", ]
 
 nroh <- merge(inds, nroh, by = "sample", all = TRUE)
@@ -326,13 +358,16 @@ norun$inform_sites <- rep(0, nrow(inds))
 norun$phred <- rep(0, nrow(inds))
 norun <- data.frame(norun)
 
+# set total autosomal length for C. semiargus
 autosize <- 416794061
 
-bins <- c(Inf, 6000000, 3000000, 1500000, 500000, 100000)
+# prepare size bins to loop over
+bins <- c(Inf, 6000000, 3000000, 1500000, 500000, 200000)
 
 frohs <- c()
 ranges <- c()
 
+# loop over bins, quantifying Froh for that size bin in each sample
 for (i in seq(length(bins))) {
   if (i <= length(bins) - 1) {
     runs <- rohs[rohs$length < bins[i], ]
@@ -349,7 +384,7 @@ for (i in seq(length(bins))) {
   }
 }
 
-range_labels <- rev(c("0.1-0.5", "0.5-1.5", "1.5-3", "3-6", ">6"))
+range_labels <- rev(c("0.2-0.5", "0.5-1.5", "1.5-3", "3-6", ">6"))
 frohs$range <- as.factor(frohs$range)
 frohs$range <- factor(frohs$range, levels = ranges, labels = range_labels)
 
@@ -397,48 +432,19 @@ frohplot <- ggplot(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
   )
-
-# nroh <- nroh[nroh$time == "modern", ]
-
-# popmeans <- nroh %>%
-#   group_by(population) %>%
-#   summarize(
-#     nroh = mean(nroh),
-#     cumroh = mean(cumroh)
-#   )
-
-
-# ggplot(nroh, aes(x = cumroh, y = nroh)) +
-#   geom_point(aes(
-#     color = population,
-#     shape = population
-#   ), alpha = 0.6) +
-#   geom_point(
-#     data = popmeans,
-#     aes(x = cumroh, y = nroh, size = 3, color = population, shape = population)
-#   ) +
-#   scale_color_manual(
-#     values = c("#658399", "#8A2A3B", "#658399", "#244F6E")
-#   ) +
-#   scale_shape_manual(
-#     values = c(15:18)
-#   ) +
-#   guides(size = "none") +
-#   ylab("Total RoH Count") +
-#   xlab("Cumulative length of RoHs (bp)") +
-#   theme_classic() +
-#   theme(
-#     aspect.ratio = 1
-#   )
-
-# ggsave("../figures/suppfig-nrohs.png", dpi = 600, create.dir = TRUE)
 ```
+
+## Figure 3
+
+Combine Froh barplots and derived count boxplots into Figure 3
 
 ```{r}
 #| label: fig-load
 #| fig-height: 8
 #| fig-width: 8
 
+# adjust plots so that they drop info that is depicted primarily by another
+# panel as well as fix font sizes and borders for paneling
 mod_clean <- mod +
   ggtitle("Total derived count") +
   theme(
@@ -539,27 +545,43 @@ plot_grid(frohplot, load, legend_inb,
   labels = c("A", "", "")
 ) + bgcolor("white")
 
-ggsave("../figures/fig-load.png", dpi = 600, create.dir = TRUE)
-ggsave("../figures/fig-load.svg", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure3.png", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure3.svg", dpi = 600, create.dir = TRUE)
 ```
+
+## Associate inbreeding coefficient with derived count
+
+As the increased homozygosity of weakly deleterious mutations is expected with
+inbreeding, we assessed the relationship of the derived count with individual
+inbreeding coefficients in the modern *Cy. semiargus* samples. The below code
+plots this association for the downsampled transitions removed data and also the
+full depth data with and without transitions.
 
 ```{r}
 #| label: fig-inbrload
 #| fig-width: 8
-#| fig-height: 3
+#| fig-height: 9
 
+# save the downsampled derived counts into a new object with just csemiargus
 var_csemi <- varcounts_all[varcounts_all$species == "Cy. semiargus",]
 
-gerpreg <- ggplot(var_csemi, aes(x = Froh, y = gerp_adj * 1000 / nsites)) +
+# plot regressions of the various putatively deleterious categories for the 6x
+# data with the derived count on y and inbreeding coefficient on x
+# use total count as default, colored red
+gerpreg_6x <- ggplot(var_csemi, aes(x = Froh, y = gerp_n * 1000 / nsites)) +
   ggtitle("Conserved Regions") +
   geom_point(color = "red") +
-  geom_point(aes(y = gerp_adj_hom * 1000 / nsites), color = "blue") +
+  # add homozygous count in blue, do the same for linear models and ther metrics
+  geom_point(aes(y = gerp_hom_n * 1000 / nsites), color = "blue") +
   geom_smooth(method = "lm", color = "red") +
-  geom_smooth(aes(y = gerp_adj_hom * 1000 / nsites), method = "lm", color = "blue") +
+  geom_smooth(aes(y = gerp_hom_n * 1000 / nsites), method = "lm", color = "blue") +
   ylab("Derived per 1000 GTs") +
   xlab("Inbreeding Coefficient (*F~RoH~*)") +
-  stat_cor(color = "red", label.y = 0.75) +
-  stat_cor(aes(y = gerp_adj_hom * 1000 / nsites), color = "blue", label.y = 0.5) +
+  ylim(c(0,2.5)) +
+  stat_cor(color = "red", label.y = 1.6) +
+  stat_regline_equation(color = "red", label.y = 1.4) +
+  stat_cor(aes(y = gerp_hom_n * 1000 / nsites), color = "blue", label.y = 1, label.x = 0.11) +
+  stat_regline_equation(aes(y = gerp_hom_n * 1000 / nsites), color = "blue", label.y = 0.8, label.x = 0.11) +
   theme_classic() +
   theme(
     axis.title.x = element_markdown(),
@@ -567,7 +589,7 @@ gerpreg <- ggplot(var_csemi, aes(x = Froh, y = gerp_adj * 1000 / nsites)) +
   )
 
 
-highreg <- ggplot(var_csemi, aes(x = Froh, y = high * 1000 / nsites)) +
+highreg_6x <- ggplot(var_csemi, aes(x = Froh, y = high * 1000 / nsites)) +
   ggtitle("LoF") +
   geom_point(color = "red") +
   geom_point(aes(y = high_hom * 1000 / nsites), color = "blue") +
@@ -575,15 +597,18 @@ highreg <- ggplot(var_csemi, aes(x = Froh, y = high * 1000 / nsites)) +
   geom_smooth(aes(y = high_hom * 1000 / nsites), method = "lm", color = "blue") +
   ylab("Derived per 1000 GTs") +
   xlab("Inbreeding Coefficient (*F~RoH~*)") +
-  stat_cor(color = "red", label.y = 0.13) +
-  stat_cor(aes(y = high_hom * 1000 / nsites), label.y = 0, color = "blue") +
+  ylim(0, 0.15) +
+  stat_cor(color = "red", label.y = 0.14) +
+  stat_regline_equation(color = "red", label.y = 0.12) +
+  stat_cor(aes(y = high_hom * 1000 / nsites), label.y = 0.01, label.x = 0.11, color = "blue") +
+  stat_regline_equation(aes(y = high_hom * 1000 / nsites), color = "blue", label.y = 0, label.x = 0.11) +
   theme_classic() +
   theme(
     axis.title.x = element_markdown(),
     legend.position = "none"
   )
 
-modreg <- ggplot(var_csemi, aes(x = Froh, y = mod * 1000 / nsites)) +
+modreg_6x <- ggplot(var_csemi, aes(x = Froh, y = mod * 1000 / nsites)) +
   ggtitle("Missense") +
   geom_point(color = "red") +
   geom_point(aes(y = mod_hom * 1000 / nsites), color = "blue") +
@@ -591,14 +616,244 @@ modreg <- ggplot(var_csemi, aes(x = Froh, y = mod * 1000 / nsites)) +
   geom_smooth(aes(y = mod_hom * 1000 / nsites), method = "lm", color = "blue") +
   ylab("Derived per 1000 GTs") +
   xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  ylim(0, 7) +
   stat_cor(color = "red", label.y = 5) +
-  stat_cor(aes(y = mod_hom * 1000 / nsites), label.y = 1, color = "blue") +
+  stat_regline_equation(color = "red", label.y = 4.5) +
+  stat_cor(aes(y = mod_hom * 1000 / nsites), label.y = 0.5, label.x = 0.11, color = "blue") +
+  stat_regline_equation(aes(y = mod_hom * 1000 / nsites), color = "blue", label.y = 0, label.x = 0.11) +
   theme_classic() +
   theme(
     axis.title.x = element_markdown(),
     legend.position = "none"
   )
 
-plot_grid(gerpreg, highreg, modreg, ncol = 3)
+# redo the above supp figure at full depth with transitions, first making a
+# new df for the full depth burden counts and froh
+
+s <- "csemiargus"
+g <- "ilCyaSemi1.1"
+
+varcounts <- read.table(
+  paste0(
+    "../analyses/results/datasets/historical-",
+    s,
+    "-vg-trans-fulldp-modonly/analyses/burden/historical-",
+    s,
+    "-vg-trans-fulldp-modonly.",
+    g,
+    "_all_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.trans.fmiss0.3.varimpacts_anc.tsv"
+  ),
+  header = TRUE
+)
+
+froh <- fread(
+  "../analyses/results/datasets/historical-csemiargus-vg-trans-fulldp-modonly/plots/inbreeding/historical-csemiargus-vg-trans-fulldp-modonly.ilCyaSemi1.1_all_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.trans.fmiss0.3.bcftools.ind_froh.tsv",
+  header = TRUE,
+  sep = "\t",
+  select = c("sample", "Froh")
+)
+varcounts <- merge(varcounts, froh, by = c("sample"))
+varcounts$species <- s
+varcounts_all <- varcounts
+
+varcounts_all$year <- str_sub(varcounts_all$population, -4, -1)
+varcounts_all$region <- str_sub(varcounts_all$population, 1, -5)
+
+varcounts_all$species <- factor(
+  varcounts_all$species,
+  levels = species,
+  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
+)
+
+varcounts_all$time <- factor(
+  varcounts_all$time,
+  levels = c("historical", "modern"),
+  labels = c("Historical", "Modern")
+)
+
+varcounts_all$region <- factor(
+  varcounts_all$region,
+  levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
+  labels = c(
+    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
+  )
+)
+
+var_csemi <- varcounts_all
+
+gerpreg_fulltrans <- ggplot(var_csemi, aes(x = Froh, y = gerp_n * 1000 / nsites)) +
+  ggtitle("Conserved Regions") +
+  geom_point(color = "red") +
+  geom_point(aes(y = gerp_hom_n * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = gerp_hom_n * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  ylim(c(0,2.5)) +
+  stat_cor(color = "red", label.y = 1.6) +
+  stat_regline_equation(color = "red", label.y = 1.4) +
+  stat_cor(aes(y = gerp_hom_n * 1000 / nsites), color = "blue", label.y = 1, label.x = 0.11) +
+  stat_regline_equation(aes(y = gerp_hom_n * 1000 / nsites), color = "blue", label.y = 0.8, label.x = 0.11) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+
+highreg_fulltrans <- ggplot(var_csemi, aes(x = Froh, y = high * 1000 / nsites)) +
+  ggtitle("LoF") +
+  geom_point(color = "red") +
+  geom_point(aes(y = high_hom * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = high_hom * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  ylim(0, 0.15) +
+  stat_cor(color = "red", label.y = 0.14) +
+  stat_regline_equation(color = "red", label.y = 0.12) +
+  stat_cor(aes(y = high_hom * 1000 / nsites), label.y = 0.01, label.x = 0.11, color = "blue") +
+  stat_regline_equation(aes(y = high_hom * 1000 / nsites), color = "blue", label.y = 0, label.x = 0.11) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+modreg_fulltrans <- ggplot(var_csemi, aes(x = Froh, y = mod * 1000 / nsites)) +
+  ggtitle("Missense") +
+  geom_point(color = "red") +
+  geom_point(aes(y = mod_hom * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = mod_hom * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  ylim(0, 7) +
+  stat_cor(color = "red", label.y = 6) +
+  stat_regline_equation(color = "red", label.y = 5.5) +
+  stat_cor(aes(y = mod_hom * 1000 / nsites), label.y = 0.5, label.x = 0.11, color = "blue") +
+  stat_regline_equation(aes(y = mod_hom * 1000 / nsites), color = "blue", label.y = 0, label.x = 0.11) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+# redo the above supp figure at full depth without transitions, first making a
+# new df for the full depth burden counts and froh
+
+varcounts <- read.table(
+  paste0(
+    "../analyses/results/datasets/historical-",
+    s,
+    "-vg-notrans-fulldp-modonly/analyses/burden/historical-",
+    s,
+    "-vg-notrans-fulldp-modonly.",
+    g,
+    "_all_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.varimpacts_anc.tsv"
+  ),
+  header = TRUE
+)
+
+froh <- fread(
+  "../analyses/results/datasets/historical-csemiargus-vg-notrans-fulldp-modonly/plots/inbreeding/historical-csemiargus-vg-notrans-fulldp-modonly.ilCyaSemi1.1_all_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.notrans.fmiss0.3.bcftools.ind_froh.tsv",
+  header = TRUE,
+  sep = "\t",
+  select = c("sample", "Froh")
+)
+varcounts <- merge(varcounts, froh, by = c("sample"))
+varcounts$species <- s
+varcounts_all <- varcounts
+
+varcounts_all$year <- str_sub(varcounts_all$population, -4, -1)
+varcounts_all$region <- str_sub(varcounts_all$population, 1, -5)
+
+varcounts_all$species <- factor(
+  varcounts_all$species,
+  levels = species,
+  labels = c("Po. icarus", "Pl. argus", "Cy. semiargus")
+)
+
+varcounts_all$time <- factor(
+  varcounts_all$time,
+  levels = c("historical", "modern"),
+  labels = c("Historical", "Modern")
+)
+
+varcounts_all$region <- factor(
+  varcounts_all$region,
+  levels = c("WSkane", "SWSkane", "ESkane", "SESkane", "NSmaland", "Oland"),
+  labels = c(
+    "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
+  )
+)
+
+var_csemi <- varcounts_all
+
+gerpreg_fullnotrans <- ggplot(var_csemi, aes(x = Froh, y = gerp_n * 1000 / nsites)) +
+  ggtitle("Conserved Regions") +
+  geom_point(color = "red") +
+  geom_point(aes(y = gerp_hom_n * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = gerp_hom_n * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  ylim(c(0,2.5)) +
+  stat_cor(color = "red", label.y = 1.6) +
+  stat_regline_equation(color = "red", label.y = 1.4) +
+  stat_cor(aes(y = gerp_hom_n * 1000 / nsites), color = "blue", label.y = 1, label.x = 0.11) +
+  stat_regline_equation(aes(y = gerp_hom_n * 1000 / nsites), color = "blue", label.y = 0.8, label.x = 0.11) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+
+highreg_fullnotrans <- ggplot(var_csemi, aes(x = Froh, y = high * 1000 / nsites)) +
+  ggtitle("LoF") +
+  geom_point(color = "red") +
+  geom_point(aes(y = high_hom * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = high_hom * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  ylim(0, 0.15) +
+  stat_cor(color = "red", label.y = 0.14) +
+  stat_regline_equation(color = "red", label.y = 0.12) +
+  stat_cor(aes(y = high_hom * 1000 / nsites), label.y = 0.01, label.x = 0.11, color = "blue") +
+  stat_regline_equation(aes(y = high_hom * 1000 / nsites), color = "blue", label.y = 0, label.x = 0.11) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+modreg_fullnotrans <- ggplot(var_csemi, aes(x = Froh, y = mod * 1000 / nsites)) +
+  ggtitle("Missense") +
+  geom_point(color = "red") +
+  geom_point(aes(y = mod_hom * 1000 / nsites), color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  geom_smooth(aes(y = mod_hom * 1000 / nsites), method = "lm", color = "blue") +
+  ylab("Derived per 1000 GTs") +
+  xlab("Inbreeding Coefficient (*F~RoH~*)") +
+  ylim(0, 7) +
+  stat_cor(color = "red", label.y = 6) +
+  stat_regline_equation(color = "red", label.y = 5.5) +
+  stat_cor(aes(y = mod_hom * 1000 / nsites), label.y = 0.5, label.x = 0.11, color = "blue") +
+  stat_regline_equation(aes(y = mod_hom * 1000 / nsites), color = "blue", label.y = 0, label.x = 0.11) +
+  theme_classic() +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+# plot Figure S10
+plot_grid(
+  gerpreg_6x, highreg_6x, modreg_6x,
+  gerpreg_fullnotrans, highreg_fullnotrans, modreg_fullnotrans,
+  gerpreg_fulltrans, highreg_fulltrans, modreg_fulltrans,
+  ncol = 3, nrow = 3
+)
 ggsave("../figures/suppfig-inbreg.png", dpi = 600, create.dir = TRUE)
 ```

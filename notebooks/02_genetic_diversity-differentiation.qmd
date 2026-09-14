@@ -1,9 +1,13 @@
 ---
 title: "Genetic diversity, inbreeding, and differentiation"
 format:
-  html:
-    code-fold: true
+  html: default
 ---
+
+This notebook contains the code used to make tables and figures relating to
+genetic diversity, differentiation, and inbreeding estimates. This includes some
+supplemental tests, such as the impacts of downsampling coverage and simulation
+comparisons to the empirical data.
 
 ```{r}
 #| label: load-packages
@@ -27,16 +31,25 @@ library(nlme) # For mixed effect models
 library(broom.mixed) # For tidying mixed effect models
 library(Hmisc) # For bootstrapped confidence intervals
 library(ggsignif) # For significance levels in plots
+library(bootstrap) # For jackknife
 
 species <- c("picarus", "pargus", "csemiargus")
 species_names <- c("Po. icarus", "Pl. argus", "Cy. semiargus")
 genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 ```
 
-## Heterozygosity
+## Heterozygosity (tables, statistics, and plots)
+
+Read in heterozygosity results from genotype calls for the three species,
+combine them into a table and save that table for the supplement.
+
+### Individual heterozygosity table
 
 ```{r}
 #| label: tbl-heterozygosity
+
+# prep heterozygosity dataframe and fill it in with heterozygosity estimates for
+# three focal species.
 
 hz_all <- c()
 
@@ -75,6 +88,9 @@ for (i in c(1:length(species))) {
   hz_all <- rbind(hz_all, hz)
 }
 
+# general clean up of df - separate pop name to get year and region, make
+# species, time period, and region a factor with clean names
+
 hz_all$year <- str_sub(hz_all$population, -4, -1)
 hz_all$region <- str_sub(hz_all$population, 1, -5)
 
@@ -98,6 +114,8 @@ hz_all$region <- factor(
   )
 )
 
+# repalce region name for SE/SW Skåne as they are grouped with E/W Skåne
+
 hz_all$region_group <- hz_all$region
 hz_all[hz_all$region_group == "SW Skåne", ]$region_group <- "W Skåne"
 hz_all[hz_all$region_group == "SE Skåne", ]$region_group <- "E Skåne"
@@ -112,8 +130,17 @@ write.table(hz_table, "../tables/hz_ests.tsv",
 )
 ```
 
+### Heterozygosity as a response to time period statistics
+
+Run statistical tests on heterozygosity - performing LMMs with heterozygosity as
+a response to time period with population as a random factor. Also perform
+jackknifes and bootstraps to get confidence intervals around the mean estimates.
+
 ```{r}
 #| label: stats-heterozygosity
+
+# get means and confidence intervals around mean heterozygosity using
+# bootstrapping of samples
 
 hz_means <- hz_all %>%
   group_by(species, population) %>%
@@ -129,21 +156,33 @@ write.table(hz_means, "../tables/hz_means.tsv",
   row.names = FALSE, quote = FALSE, sep = "\t"
 )
 
+# prepare table for supplement with historical/modern heterozygosity comparisons
+
 hz_stats <- c()
 
 for (s in species_names) {
   hist <- mean(hz_all[hz_all$species == s & hz_all$time == "Historical", ]$hetperbp * 1000)
   mod <- mean(hz_all[hz_all$species == s & hz_all$time == "Modern", ]$hetperbp * 1000)
+  # estimate ratio of modern to historical heterozygosity
   ratio <- mod/hist
+  # run linear mixed model with heterozygosity as response to time period and pop as a random eff.
   model <- lme(hetperbp * 1000 ~ time, random = ~1|region_group, data = hz_all[hz_all$species == s, ])
+  # extract model parameter estimates with tidy
   tidyed <- tidy(model, conf.int = TRUE, effects = "fixed")
   tidydf <- tidyed[2, c(3,4,6,7,8,9)]
   tidydf$hist.mean <- hist
+  # perform jackknifing as another approach to confidence intervals around means
+  jackknife <- quantile(jackknife(hz_all[hz_all$species == s & hz_all$time == "Historical", ]$hetperbp * 1000, mean)$jack.values, c(0.025, 0.975))
+  tidydf$hist.low.jk.ci <- jackknife[1]
+  tidydf$hist.high.jk.ci <- jackknife[2]
   tidydf$mod.mean <- mod
+  jackknife <- quantile(jackknife(hz_all[hz_all$species == s & hz_all$time == "Modern", ]$hetperbp * 1000, mean)$jack.values, c(0.025, 0.975))
+  tidydf$mod.low.jk.ci <- jackknife[1]
+  tidydf$mod.high.jk.ci <- jackknife[2]
   tidydf$`mod/hist` <- ratio
   tidydf <- round(tidydf, 5)
   tidydf$species <- s
-  tidydf <- tidydf[ , c(10, 7, 8, 9, 1, 2, 3, 5, 6, 4)]
+  tidydf <- tidydf[ , c("species", "hist.mean", "hist.low.jk.ci", "hist.high.jk.ci", "mod.mean", "mod.low.jk.ci", "mod.high.jk.ci", "mod/hist", "estimate", "std.error", "statistic", "conf.low", "conf.high", "p.value")]
   hz_stats <- rbind(hz_stats, tidydf)
 }
 
@@ -151,6 +190,11 @@ write.table(hz_stats, "../tables/hz_stats.tsv",
   row.names = FALSE, quote = FALSE, sep = "\t"
 )
 ```
+
+### Heterozygosity boxplots
+
+Plot the differences in heterozygosity as a boxplot, with points colored by
+sampling region and time period on the y-axis.
 
 ```{r}
 #| label: fig-het-box
@@ -196,7 +240,10 @@ hzbox <- ggplot(hz_all, aes(x = time, y = hetperbp * 1000)) +
   )
 ```
 
-## Inbreeding coefficients
+## Inbreeding coefficients (tables, statistics, and plots)
+
+Read in Froh results from genotype calls for the three species, format them and
+combine them into a table and save that table for the supplement.
 
 ```{r}
 #| label: froh-table
@@ -260,6 +307,12 @@ write.table(froh_table, "../tables/froh_ests.tsv",
 )
 ```
 
+### Inbreeding coefficient as a response to time period statistics
+
+Run statistical tests on inbreed coeff - performing LMMs with Froh as
+a response to time period with population as a random factor. Also perform
+jackknifes and bootstraps to get confidence intervals around the mean estimates.
+Largely the same code as heterozygosity above.
 
 ```{r}
 #| label: stats-froh
@@ -287,10 +340,16 @@ for (s in species_names) {
   tidyed <- tidy(model, conf.int = TRUE, effects = "fixed")
   tidydf <- tidyed[2, c(3,4,6,7,8,9)]
   tidydf$hist.mean <- hist
+  jackknife <- quantile(jackknife(froh_all[froh_all$species == s & froh_all$time == "Historical", ]$Froh, mean)$jack.values, c(0.025, 0.975))
+  tidydf$hist.low.jk.ci <- jackknife[1]
+  tidydf$hist.high.jk.ci <- jackknife[2]
   tidydf$mod.mean <- mod
+  jackknife <- quantile(jackknife(froh_all[froh_all$species == s & froh_all$time == "Modern", ]$Froh, mean)$jack.values, c(0.025, 0.975))
+  tidydf$mod.low.jk.ci <- jackknife[1]
+  tidydf$mod.high.jk.ci <- jackknife[2]
   tidydf <- round(tidydf, 5)
   tidydf$species <- s
-  tidydf <- tidydf[ , c(9, 7, 8, 1, 2, 3, 5, 6, 4)]
+  tidydf <- tidydf[ , c(13, 7, 8, 9, 10, 11, 12, 1, 2, 3, 5, 6, 4)]
   froh_stats <- rbind(froh_stats, tidydf)
 }
 
@@ -298,6 +357,11 @@ write.table(froh_stats, "../tables/froh_stats.tsv",
   row.names = FALSE, quote = FALSE, sep = "\t"
 )
 ```
+
+### Froh boxplots
+
+Plot the differences in Froh as a boxplot, with points colored by
+sampling region and time period on the y-axis. Same as heterozygosity.
 
 ```{r}
 #| label: fig-froh-box
@@ -340,6 +404,12 @@ frohbox <- ggplot(froh_all, aes(x = time, y = Froh)) +
   )
 ```
 
+### Froh adjusted heterozygosity for the supplement
+
+Combine Froh and heterozygosity tables, then use Froh to adjust heterozygosity
+with the equation het / (1 - Froh), which approximates the avg heterozygosity
+outside RoH. Plot this as a faceted boxplot for the supplement.
+
 ```{r}
 #| label: fig-roh-adj-het
 #| fig-width: 5
@@ -347,6 +417,7 @@ frohbox <- ggplot(froh_all, aes(x = time, y = Froh)) +
 
 adj_hz <- merge(froh_all, hz_all)
 
+# adjust heterozygosity by Froh
 adj_hz$adj_hz <- adj_hz$hetperbp * 1000 / (1 - adj_hz$Froh)
 
 roh_het <- adj_hz[ , c("sample", "population", "time", "species", "region")]
@@ -396,13 +467,16 @@ ggsave("../figures/suppfig-roh-adj-het.png", dpi = 300, create.dir = TRUE)
 
 ## Nucleotide diversity
 
+Prepare a table of mean estimates of pi per population by taking means across
+windows. Get confidence intervals by bootstrapping across windows.
+
 ```{r}
 #| label: tbl-pi
 #| eval: true
 
 pi_all <- c()
 
-# read in F_ST results for population pairs
+# read in windowed pi results for population pairs
 for (i in c(1:length(species))) {
   s <- species[i]
   g <- genomes[i]
@@ -423,15 +497,15 @@ for (i in c(1:length(species))) {
   pi_all <- rbind(pi_all, nucdiv)
 }
 
-# Summarize Fst results per pair
+# Summarize pi results per pair, using bootstraps to get confidence intervals
 pi_all <- pi_all %>%
   group_by(species, pop) %>%
   do(data.frame(rbind(Hmisc::smean.cl.boot(.$avg_pi, B = 10000))))
 
-# Read in sampling info, including coordinates
+# Read in sampling info to group pops by
 regions <- read.table("../config/pop_groups.tsv", header = TRUE)
 
-# Merge sampling info with F_ST data
+# Merge sampling info with pi data
 pi_all <- merge(pi_all, regions, by.x = "pop", by.y = "population")
 
 pi_all$species <- factor(
@@ -446,7 +520,10 @@ write.table(pi_all,
 )
 ```
 
-## Population differention using *F~ST~*
+## Population differention using *F*~ST~
+
+Prepare a table of mean estimates of *F*~ST~ per pop pair by taking means
+across windows. Get confidence intervals by bootstrapping across windows.
 
 ```{r}
 #| label: tbl-fst
@@ -454,7 +531,7 @@ write.table(pi_all,
 
 fst_all <- c()
 
-# read in F_ST results for population pairs
+# read in windowed F_ST results for population pairs
 for (i in c(1:length(species))) {
   s <- species[i]
   g <- genomes[i]
@@ -480,7 +557,7 @@ fst <- fst_all
 # Set negative Fst to 0
 fst[fst$avg_hudson_fst < 0, ]$avg_hudson_fst <- 0
 
-# Summarize Fst results per pair
+# Summarize Fst results per pair, getting confidence intervals from bootstraps
 fst <- fst %>%
   group_by(species, pop1, pop2) %>%
   do(data.frame(rbind(Hmisc::smean.cl.boot(.$avg_hudson_fst, B = 10000))))
@@ -528,6 +605,8 @@ write.table(fst,
   quote = FALSE, row.names = FALSE
 )
 ```
+
+Plot line plots of *F*~ST~ change over time.
 
 ```{r}
 #| label: fig-fst-box
@@ -578,18 +657,23 @@ fstplot <- ggplot(
 
 ## Make Figure 1
 
+Combine pictures of butterflies, sampling map made in QGIS, and the three plots
+generated above into the final Figure 1.
+
 ```{r}
 #| label: fig-diversity
 #| fig-width: 10.5
 #| fig-height: 7
 #| eval: true
 
+# initialize above generated plots as new objects for arranging
 arrhz <- hzbox
 
 arrfroh <- frohbox
 
 arrfst <- fstplot
 
+# read in map and make it a ggplot
 map <- readPNG("../resources/gis/sampling_map/historical_map.png")
 map <- rasterGrob(map, interpolate = TRUE)
 map <- ggplot() +
@@ -604,6 +688,7 @@ map <- ggplot() +
     )
   )
 
+# read in butterfly images and make them a ggplot
 butterflies <- readPNG("../images/butterfly_species_photos.png")
 butterflies <- rasterGrob(butterflies, interpolate = TRUE)
 butterflies <- ggplot() +
@@ -621,6 +706,7 @@ butterflies <- ggplot() +
     )
   )
 
+# arrange butterfly photos and map into a left panel for the plot
 map_photos <- plot_grid(
   butterflies, map,
   labels = c("A", "B"),
@@ -629,63 +715,70 @@ map_photos <- plot_grid(
   rel_heights = c(0.4, 1)
 )
 
+# arrange map photos, plus three plots here into a final figure
 plot_grid(map_photos,
   plot_grid(arrhz, arrfroh, arrfst, ncol = 1, nrow = 3, labels = c("C", "D", "E"), align = "v", axis = "lr"),
   ncol = 2, nrow = 1
 ) + bgcolor("white")
 
-ggsave("../figures/fig-diversity.png", dpi = 600, create.dir = TRUE)
-ggsave("../figures/fig-diversity.svg", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure1.png", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure1.svg", dpi = 600, create.dir = TRUE)
 ```
+
+## Coalescent simulations
+
+We used coalescent simulations to verify that the empirical estimates from our
+genomic data aligned with population genetic expectations. These were done with
+Slendr using the msprime backend, manually running them with the Rscript found
+at
+[`analyses/slendr/butterfly-decline-predict.R`](../analyses/slendr/butterfly-decline-predict.R).
+This code summarizes this data into distributions of simulated outcomes reported
+in Table S10 and Figure S9.
+
 
 ```{r}
 #| label: fig-sims
-#| fig-width: 7
-#| fig-height: 6
+#| fig-width: 8
+#| fig-height: 5
 
+# prep the hz_means and froh_means objects, these weren't used in making any
+# tables in the end, but are clean data frames for this
 hz_means$year <- str_sub(hz_means$population, -4, -1)
 hz_means$region <- str_sub(hz_means$population, 1, -5)
 froh_means$year <- str_sub(froh_means$population, -4, -1)
 froh_means$region <- str_sub(froh_means$population, 1, -5)
 
+
+# prepare an object with the empirical results for the relevant pops
 sims <- c()
 
-for (i in 1:length(species)) {
-  sn <- species_names[i]
-  s <- species[i]
-  sdf <- hz_means[hz_means$species == sn, ]
-  regs <- unique(sdf$region)
-  for (r in regs) {
-    if (r == "SESkane") {
-    } else if (r == "SWSkane") {
-      histh <- sdf[sdf$region == "WSkane" & sdf$year < 2000, ]$Mean
-      histy <- sdf[sdf$region == "WSkane" & sdf$year < 2000, ]$year
-      modh <- sdf[sdf$region == "SWSkane", ]$Mean
-      mody <- sdf[sdf$region == "SWSkane", ]$year
-      region <- r
-      row <- c(s, sn, region, mody, histy, modh/histh)
-      sims <- rbind(sims, row)
-    } else if (r == "WSkane" & s == "pargus") {
-    } else {
-      histh <- sdf[sdf$region == r & sdf$year < 2000, ]$Mean
-      histy <- sdf[sdf$region == r & sdf$year < 2000, ]$year
-      modh <- sdf[sdf$region == r & sdf$year > 2000, ]$Mean
-      mody <- sdf[sdf$region == r & sdf$year > 2000, ]$year
-      region <- r
-      row <- c(s, sn, region, mody, histy, modh/histh)
-      sims <- rbind(sims, row)
-    }
+sn <- species_names[3]
+s <- species[3]
+sdf <- hz_means[hz_means$species == sn, ]
+regs <- unique(sdf$region)
+for (r in regs) {
+  if (r == "SESkane") {
+  } else {
+    histh <- sdf[sdf$region == r & sdf$year < 2000, ]$Mean
+    histy <- sdf[sdf$region == r & sdf$year < 2000, ]$year
+    modh <- sdf[sdf$region == r & sdf$year > 2000, ]$Mean
+    mody <- sdf[sdf$region == r & sdf$year > 2000, ]$year
+    region <- r
+    row <- c(s, sn, region, mody, histy, modh/histh)
+    sims <- rbind(sims, row)
   }
 }
 
 sims <- data.frame(sims)
 colnames(sims) <- c("species", "species_name", "region", "modyear", "histyear", "hetratio")
 
+# read in the simulation outputs from the sims folder for the relevant pops
+# calculate the relevant ratios of heterozygosity over time, incl. adjusted het
 simdata <- c()
 
 for (i in 1:nrow(sims)) {
   base <- paste(
-    sims[i, 1], sims[i, 3], sims[i, 4], sims[i, 5], sep = "-"
+    sims[i, 1], tolower(sims[i, 3]), "2121", sims[i, 4], sims[i, 5], "exclfirst-anc100", sep = "-"
   )
   sim <- read.table(
     paste0(
@@ -694,18 +787,30 @@ for (i in 1:nrow(sims)) {
       ".tsv"
     )
   )
-  sim$species <- sims[i, 1]
-  sim$region <- sims[i, 3]
-  sim$hetratio <- sim$V2
-  sim$modFroh <- sim$V5
-  sim$adjHetRatio <- sim$V3
-  simdata <- rbind(simdata, sim[ , c("species", "region", "hetratio", "modFroh", "adjHetRatio")])
+  sim0 <- c()
+  sim0$hetratio <- sim$V2
+  sim0$Froh <- sim$V7
+  sim0$adjHetRatio <- sim$V4
+  sim0$species <- sims[i, 1]
+  sim0$region <- sims[i, 3]
+  sim0$time <- 0
+  sim100 <- c()
+  sim100$hetratio <- sim$V3
+  sim100$Froh <- sim$V8
+  sim100$adjHetRatio <- sim$V5
+  sim100$species <- sims[i, 1]
+  sim100$region <- sims[i, 3]
+  sim100$time <- 100
+  simdata <- rbind(
+    simdata,
+    data.frame(sim0)[ , c("species", "region", "hetratio", "Froh", "adjHetRatio", "time")],
+    data.frame(sim100)[ , c("species", "region", "hetratio", "Froh", "adjHetRatio", "time")]
+  )
 }
 
 sims[, "hetratio"] <- as.numeric(sims[, "hetratio"])
 sims$species <- sims$species_name
 
-froh_means
 froh_mod <- froh_means[froh_means$year > 2000, ]
 
 simdata$species <- factor(
@@ -714,15 +819,11 @@ simdata$species <- factor(
   labels = species_names
 )
 
+# summarize quantiles for use in Table S10, which I manually make from
+# what is printed here
 
-sims$species <- factor(
-  sims$species,
-  levels = species_names,
-  labels = species_names
-)
-
-hetratio <- simdata %>%
-  group_by(species, region) %>%
+hetratio <- simdata[simdata$time == 0, ] %>%
+  group_by(region) %>%
   summarise(
     min = min(hetratio),
     q25 = quantile(hetratio, 0.25),
@@ -731,18 +832,22 @@ hetratio <- simdata %>%
     max = max(hetratio)
   )
 
-modFroh <- simdata %>%
-  group_by(species, region) %>%
+hetratio
+
+modFroh <- simdata[simdata$time == 0, ] %>%
+  group_by(region) %>%
   summarise(
-    min = min(modFroh),
-    q25 = quantile(modFroh, 0.25),
-    q50 = quantile(modFroh, 0.50),
-    q75 = quantile(modFroh, 0.75),
-    max = max(modFroh)
+    min = min(Froh),
+    q25 = quantile(Froh, 0.25),
+    q50 = quantile(Froh, 0.50),
+    q75 = quantile(Froh, 0.75),
+    max = max(Froh)
   )
 
-adjHetRatio <- simdata %>%
-  group_by(species, region) %>%
+modFroh
+
+adjHetRatio <- simdata[simdata$time == 0, ] %>%
+  group_by(region) %>%
   summarise(
     min = min(adjHetRatio),
     q25 = quantile(adjHetRatio, 0.25),
@@ -751,37 +856,135 @@ adjHetRatio <- simdata %>%
     max = max(adjHetRatio)
   )
 
-sims <- sims[sims$region != "SESkane", ]
+adjHetRatio
+
+simdata$time <- factor(
+  simdata$time,
+  levels = c(0, 100),
+  labels = c("Sampled year", "100 years post sampling")
+)
+
+# drop SESkane from froh_mod object since it isn't in the sims
 froh_mod <- froh_mod[froh_mod$region != "SESkane", ]
 
+pd <- position_dodge(width = 0.9)
+
 hetsim <- ggplot(sims, aes(x = region, y = hetratio)) +
-  geom_violin(data = simdata) +
-  geom_point(color = "red", size = 3) +
-  facet_grid(cols = vars(species), scales = "free_x") +
+  # plot distribution of simulation replicate values
+  geom_violin(data = simdata, aes(linetype = time), position = pd) +
+  # plot simulation median values
+  stat_summary(data = simdata, aes(group = time), position = pd, fun = "median", color = "black", geom = "point") +
+  # plot empirical estimates with some nudging to align it with the right time (sample year rather than 100 years post)
+  geom_point(color = "red", size = 3, position = position_nudge(x = -0.9/4)) +
   ylab("Proportion retained heterozygosity") +
   theme_bw() +
   theme(
-    strip.text.x = element_text(size = 10, face = "italic"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
     axis.title.x = element_blank()
   )
 
-frohsim <- ggplot(froh_mod, aes(x = region, y = Mean)) +
-  geom_violin(data = simdata, aes(y = modFroh)) +
-  geom_point(color = "red", size = 3) +
-  facet_grid(cols = vars(species), scales = "free_x") +
+frohsim <- ggplot(froh_mod[froh_mod$species == "Cy. semiargus", ], aes(x = region, y = Mean)) +
+  # plot distribution of simulation replicate values
+  geom_violin(data = simdata, aes(y = Froh, linetype = time), position = pd) +
+  # plot simulation median values
+  stat_summary(data = simdata, aes(y = Froh, group = time), position = pd, fun = "median", color = "black", geom = "point") +
+  # plot empirical estimates with some nudging to align it with the right time (sample year rather than 100 years post)
+  geom_point(color = "red", size = 3, position = position_nudge(x = -0.9/4)) +
   ylab("Mean modern *F~RoH~*") +
   theme_bw() +
   theme(
-    strip.text.x = element_text(size = 10, face = "italic"),
+    legend.position = "none",
     axis.title.y = element_markdown(),
     axis.title.x = element_blank()
   )
 
+# combine into Figure S9
 plot_grid(
   hetsim,
   frohsim,
-  ncol = 1
+  align = "h",
+  ncol = 2
 )
 
 ggsave("../figures/suppfig-sims.png", dpi = 600)
+```
+
+## Compare with full depth in *Cy. semiargus*
+
+To verify that the patterns we observed in the modern samples for heterozygosity
+and Froh held even when samples were not subsampled to the coverage of
+historical samples, we estimated heterozygosity, Froh, and Fst at full depth
+using only the modern samples. This block plots the comparison depicted in
+Figure S11.
+
+```{r}
+#| label: fig-het-fulldepth
+#| fig-width: 10
+#| fig-height: 5
+
+# read in full depth with transition heterozygosity estimates for C. semiargus
+s <- "csemiargus"
+g <- "ilCyaSemi1.1"
+hz <- fread(
+  paste0(
+    "../analyses/results/datasets/historical-",
+    s,
+    "-vg-trans-fulldp-modonly/analyses/heterozygosity/historical-",
+    s,
+    "-vg-trans-fulldp-modonly.",
+    g,
+    "_all_allsites-filts.filtered_mindp5-allsites-jointcall_allbal0.21-0.79.trans.fmiss0.3.bcftools.het.tsv"
+  ),
+  header = TRUE,
+  sep = "\t"
+)
+
+# merge together original hz_all with new full depth hz. This makes hetperbp.x
+# the downsampled het and hetperbp.y the full depth het
+hz <- merge(hz_all, hz, by = "sample")
+
+# read in sample qc table to get full depth value of each sample for plotting
+fulldps <- fread("../analyses/results/datasets/historical-csemiargus-vg-trans-fulldp-modonly/qc/historical-csemiargus-vg-trans-fulldp-modonly.ilCyaSemi1.1_all.sampleqc.tsv",
+  header = TRUE,
+  sep = "\t"
+)
+
+# merge in the sample depth info to the hz object
+hz <- merge(hz, fulldps, by = "sample")
+
+# merge in downsampled dp Froh estimates to the hz object
+hz <- merge(hz, froh_all[,c("sample", "Froh")], by = "sample")
+
+# read in full depth with transitions Froh estimates
+froh <- fread("../analyses/results/datasets/historical-csemiargus-vg-trans-fulldp-modonly/plots/inbreeding/historical-csemiargus-vg-trans-fulldp-modonly.ilCyaSemi1.1_all_allsites-filts.filtered_mindp5-biallelic-jointcall_allbal0.21-0.79.trans.fmiss0.3.bcftools.ind_froh.tsv")
+
+# merge in full depth froh estimates, making Froh.x the downsampled and Froh.y
+# the full depth estimate
+hz <- merge(hz, froh[,c("sample", "Froh")], by = "sample")
+
+# plot heterozygosity and Froh with downsampled on x and full dp on y
+hz_full <- ggplot(hz, aes(x = hetperbp.x, y = hetperbp.y)) +
+  geom_point(aes(color = `allsites-filts.depth.mean`)) +
+  xlab("Heterozygous sites per bp (downsampled to 6x, no transitions)") +
+  ylab("Heterozygous sites per bp (full depth, including transitions)") +
+  geom_smooth(method = "lm", color = "black") +
+  theme_classic() +
+  labs(color = "Full seq. depth") +
+  theme(
+    legend.position = c(0.2, 0.7)
+  )
+
+f_full <- ggplot(hz, aes(x = Froh.x, y = Froh.y)) +
+  geom_point(aes(color = `allsites-filts.depth.mean`)) +
+  xlab("FRoH (downsampled to 6x, no transitions)") +
+  ylab("FRoH (full depth, including transitions)") +
+  geom_smooth(method = "lm", color = "black") +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  )
+
+plot_grid(hz_full, f_full, ncol = 2)
+ggsave("../figures/suppfig-hetdepth.png", width = 10, height = 5, dpi = 600)
 ```
