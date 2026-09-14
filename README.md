@@ -125,7 +125,7 @@ compare with vg or running bwa alignments under different settings.
 
 Statistical analyses, tables, and figures were performed in R using Quarto
 notebooks. These notebooks are stored in [notebooks](notebooks) and are
-[rendered and browseable with a table of contents here]().
+[rendered and browseable with a table of contents here](https://zjnolen.github.io/polyommatini-temporal-genomics/).
 [`environment.yaml`](environment.yaml) contains the packages and versions I
 installed when building the environment for running the notebooks, and
 [`environment.pinned.yaml`](environment.pinned.yaml) contains these plus the
