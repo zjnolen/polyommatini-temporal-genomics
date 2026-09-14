@@ -1,6 +1,7 @@
 # Project specific configs (outside PopGLen pipeline)
-GONE_input_params: "../config/GONE_input_params_csemiargus"
-recrate: "2.76e-8"
+gone_input_bcf: ""
+GONE_input_params: ""
+recrate: "1.38e-8"
 gff: "../resources/gffs/Cyaniris_semiargus-GCA_905187585.1-2021_12-genes.gff3.gz"
 bcf_trans: "notrans"
 bcf_missing: "0.4"

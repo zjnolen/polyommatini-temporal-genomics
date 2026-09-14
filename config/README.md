@@ -9,7 +9,9 @@ the formats of the filenames that you can expect in here:
   to estimate the GERP scores and ancestral states.
 
 - `config_<species>_make-vg.yaml` contains the configuration for constructing
-  the variation graph from bwa mem aligned modern samples.
+  the variation graph from bwa mem aligned modern samples. For species where we
+  only had museum samples, this will simply prepare the linear reference to be
+  aligned with vg, no additional variants incorporated.
 
 - `config_<species>_vg.yaml`/`config_<species>_vg_notrans.yaml` contains the
   configuration for running the main manuscript analyses. These align the
@@ -23,10 +25,21 @@ the formats of the filenames that you can expect in here:
   historical sample to the reference with alternate bwa aln settings for
   comparisons shown in the supplement.
 
+- `config_csemiargus_vg_{notrans,trans}_fulldp_modonly.yaml` were used to
+  reanalyze the *Cy. semiargus* samples at full sequencing depth to investigate
+  if this impacted the results (Figures S10&11). These should be run with a
+  special Snakefile to disable depth subsampling, passed with
+  `--snakefile workflow/full-depth.snakefile`.
+
+To run a workflow with a specific config, pass it to snakemake with
+`--configfile`. Many of the settings in these configs are inherited from
+PopGLen, and you can see a
+[cheat sheet for them here](https://zjnolen.github.io/PopGLen/v0.4.2/config-cheat/).
+
 ## Sample files
 
 Sample files contain the sample lists for each configuration and are referenced
-in the respective config.yaml files
+in the respective config.yaml files.
 
 ## Units files
 

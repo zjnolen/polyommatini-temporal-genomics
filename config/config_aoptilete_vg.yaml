@@ -1,6 +1,7 @@
 # Project specific configs (outside PopGLen pipeline)
+gone_input_bcf: ""
 GONE_input_params: ""
-recrate: "1.89e-8"
+recrate: "9.46e-9"
 gff: ""
 bcf_trans: "notrans"
 bcf_missing: "0.4"
