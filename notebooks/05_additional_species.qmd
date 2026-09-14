@@ -1,7 +1,8 @@
 ---
 title: "Additional Polyommatini species"
 format:
-  html: default
+  html:
+    toc: true
 ---
 
 This notebook contains the code used to make table and figure relating to the

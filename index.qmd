@@ -1,0 +1,115 @@
+---
+title: Species-specific loss of genetic diversity and inbreeding following agricultural intensification
+author:
+  - name: Zachary J. Nolen
+    corresponding: true
+    email: zachary.nolen@biol.lu.se
+    affiliations:
+      - Lund University
+  - name: Patrycja Jamelska
+    affiliations:
+      - Lund University
+  - name: Ana Sofía Torres Lara
+    affiliations:
+      - Lund University
+      - University of Bremen
+  - name: Niklas Wahlberg
+    affiliations:
+      - Lund University
+  - name: Anna Runemark
+    affiliations:
+      - Lund University
+---
+
+These notebooks contain the code used to perform statistical analyses and
+generate figures and tables for our manuscript. These notebooks largely take in
+population genetic analysis outputs as input. If you're looking for code for
+processing the genomic data and producing population genetic metrics, most of
+that is processed by the Snakemake pipeline found in the
+[`analyses/workflow`](https://github.com/zjnolen/polyommatini-temporal-genomics/tree/main/analyses/workflow)
+folder.
+
+The notebooks are:
+
+- [IBS aligner testing](notebooks/01_ibs_tests.qmd) - which covers the identity
+  by state similarity to the reference tests for vg vs bwa aln.
+- [Genetic diversity, inbreeding, and differentiation](notebooks/02_genetic_diversity-differentiation.qmd) - which
+  covers heterozygosity, inbreeding coefficients, pi, and *F*~ST~.
+- [Population Structure](notebooks/03_population_structure.qmd) - which
+  covers the PCA and admixture plotting.
+- [Putatively deleterious mutation burden](notebooks/04_deleterious_burden.qmd) - which covers
+  calculation and plotting of putative deleterious mutation burden.
+- [Additional Polyommatini species](notebooks/05_additional_species.qmd) - which covers
+  the estimation of heterozygosity change for the non-focal species.
+- [GONE effective population sizes](notebooks/06_gone.qmd) - which covers plotting the GONE inferred
+  demographic histories.
+
+Below are links to the specific code blocks used to generate each table/figure.
+Some may require looking back at previous code in the notebook to see code for
+all the components.
+
+*Main:*
+
+- Figure 1 (Panels
+  [C](notebooks/02_genetic_diversity-differentiation.qmd#heterozygosity-boxplots),
+  [D](notebooks/02_genetic_diversity-differentiation.qmd#froh-boxplots),
+  [E](notebooks/02_genetic_diversity-differentiation.qmd#population-differention-using-fst);
+  [full](notebooks/02_genetic_diversity-differentiation.qmd#make-figure-1))
+- Figure 2 (Panel [A](notebooks/03_population_structure.qmd#pca),
+  [B](notebooks/03_population_structure.qmd#best-fit-k-admixture-plot);
+  [full](notebooks/03_population_structure.qmd#combined-pca-admixture-plot-figure-2))
+- Figure 3 (Panel
+  [A](notebooks/04_deleterious_burden.qmd#inbreeding-coefficients-partitiond-by-roh-size),
+  [B & C](notebooks/04_deleterious_burden.qmd#derived-count-main-boxplots);
+  [full](notebooks/04_deleterious_burden.qmd#figure-3))
+- [Figure 4](notebooks/05_additional_species.qmd#heterozygosity-change-per-year)
+
+*Supplementary:*
+
+- Figure S1 - direct outputs of [DamageProfiler](https://github.com/Integrative-Transcriptomics/DamageProfiler)
+  arranged manually in the doc
+- [Figure S2](notebooks/01_ibs_tests.qmd#investigating-reference-bias-with-different-aligners)
+- Figure S3 - direct output of [AMBER](https://github.com/tvandervalk/AMBER)
+- [Figure S4](notebooks/03_population_structure.qmd#pca) - bottom panel directly
+  from code as is, upper panel from the same code with the covariance matrix
+  estimated from bwa aln aligned BAM files substituted in.
+- [Figure S5](notebooks/06_gone.qmd#gone-effective-population-sizes)
+- [Figure S6](notebooks/03_population_structure.qmd#all-k-plots)
+- [Figure S7](notebooks/03_population_structure.qmd#all-k-plots) - these come directly from
+  the `plotCorRes` function which this code block sources from evalAdmix's
+  [`visFuns.R` script](https://github.com/GenisGE/evalAdmix/blob/master/visFuns.R).
+- [Figure S8](notebooks/02_genetic_diversity-differentiation.qmd#froh-adjusted-heterozygosity-for-the-supplement)
+- [Figure S9](notebooks/02_genetic_diversity-differentiation.qmd#coalescent-simulations)
+- [Figure S10](notebooks/04_deleterious_burden.qmd#associate-inbreeding-coefficient-with-derived-count) -
+  with some manual editing of the overlaid text.
+- [Figure S11](notebooks/02_genetic_diversity-differentiation.qmd#compare-with-full-depth-in-cy.-semiargus)
+- Figure S12 - Each one made from manually running
+  [this `plot_Froh.R` script](https://github.com/zjnolen/polyommatini-temporal-genomics/blob/main/analyses/workflow/scripts/plot_Froh.R)
+  on outputs from bcftools roh run with and without `--ignore-homref` on the
+  same VCF.
+- Table S1 - Manually maintained
+- Table S2 - Combination of
+  [heterozygosity table](notebooks/02_genetic_diversity-differentiation.qmd#individual-heterozygosity-table)
+  and [*F~RoH~* table](notebooks/02_genetic_diversity-differentiation.qmd#inbreeding-coefficients-tables-statistics-and-plots).
+  Adjusted heterozygosity column generated in Excel.
+- [Table S3](notebooks/02_genetic_diversity-differentiation.qmd#heterozygosity-as-a-response-to-time-period-statistics)
+- [Table S4](notebooks/02_genetic_diversity-differentiation.qmd#nucleotide-diversity)
+- Table S5 - The values in Table S4 were used to make this table with Excel
+  functions for the equation in the manuscript methods, each column being a
+  stepwise component of the equation.
+- Table S6 - Population means for the focal species come from
+  [this code](notebooks/02_genetic_diversity-differentiation.qmd#heterozygosity-as-a-response-to-time-period-statistics),
+  the median and range for heterozygosity retention for pairwise individual
+  comparions comes from [this code](notebooks/05_additional_species.qmd#heterozygosity-change-per-year),
+  and the contemporary *Ne* estimates come directly from the GONE output.
+- [Table S7](notebooks/02_genetic_diversity-differentiation.qmd#population-differention-using-fst)
+- Table S8 - These convergence tables are output from PopGLen.
+- [Table S9](notebooks/02_genetic_diversity-differentiation.qmd#inbreeding-coefficient-as-a-response-to-time-period-statistics)
+- Table S10 - Manually pulled from the values returned in
+  [this code block](notebooks/02_genetic_diversity-differentiation.qmd#coalescent-simulations)
+- [Table S11](notebooks/04_deleterious_burden.qmd#derived-count-statistics-and-table)
+- Table S12 - Manually maintained
+- Table S13 - These filter tables output by PopGLen
+- Table S14 - Extracted from [ngsRelate](https://github.com/ANGSD/NgsRelate)
+  produced in PopGLen.
+- Table S15 - Manually maintained.

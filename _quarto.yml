@@ -2,4 +2,11 @@ project:
   type: website
   output-dir: docs
 
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    respect-user-color-scheme: true
+
 fig-dpi: 600

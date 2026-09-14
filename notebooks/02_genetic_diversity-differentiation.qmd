@@ -1,7 +1,8 @@
 ---
 title: "Genetic diversity, inbreeding, and differentiation"
 format:
-  html: default
+  html:
+    toc: true
 ---
 
 This notebook contains the code used to make tables and figures relating to
