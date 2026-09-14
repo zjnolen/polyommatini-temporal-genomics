@@ -131,5 +131,5 @@ installed when building the environment for running the notebooks, and
 [`environment.pinned.yaml`](environment.pinned.yaml) contains these plus the
 dependencies that were installed in the environment by conda. This doesn't
 contain the builds to make it more portable across systems, but these are in
-[`environment.builds.yaml`](environments.builds.yaml) (for Intel Mac) if needed.
+[`environment.builds.yaml`](environment.builds.yaml) (for Intel Mac) if needed.
 I had Quarto installed locally, so it is not in the environment files.
