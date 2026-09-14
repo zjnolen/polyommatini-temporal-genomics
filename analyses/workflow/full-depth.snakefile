@@ -1,0 +1,133 @@
+from snakemake.utils import min_version
+
+min_version("7.32.0")
+
+"""
+The main Snakefile to run the analyses in this manuscript. It is run after you
+have constructed the variation graph. It maps the reads to the graph, then
+runs site level filtering and genotype likelihood analyses (PCA, admix in this
+manuscript, but more can be enabled in the configs) through PopGLen and genotype
+call analyses (heterozygosity, pi, fst, mutation burden, runs of homozygosity,
+GONE demographic histories).
+"""
+
+
+module angsd:
+    snakefile:
+        github(
+            "zjnolen/PopGLen",
+            path="workflow/Snakefile",
+            tag="6605810fb53b24e289ac0f29b216aecfc589aa96",
+        )
+    config:
+        config
+
+
+use rule * from angsd exclude all
+
+
+use rule all from angsd as popglen_all
+
+
+include: "rules/call_genotypes.smk"
+include: "rules/diversity_differentiation.smk"
+include: "rules/bcftools_roh.smk"
+include: "rules/mutation_burden.smk"
+include: "rules/vg-map.smk"
+
+
+wildcard_constraints:
+    ref=config["reference"]["name"],
+    dp=".{0}|.dp[1-9][0-9]*",
+    population="|".join(
+        ["all"]
+        + ["all_excl_pca-admix"]
+        + [i for i in angsd.samples.index.tolist()]
+        + [i for i in angsd.samples.population.values.tolist()]
+        + [i for i in angsd.samples.depth.values.tolist()]
+    ),
+    mindp="[1-9][0-9]*",
+
+
+# generate a list of all outputs to target in addition to any PopGLen outputs
+# enabled in the config.
+
+all_outputs = []
+
+# if configured, estimate heterozygosity from calls
+if config["call_heterozygosity"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{{dataset}}/analyses/heterozygosity/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}.bcftools.het.tsv",
+            dp=[""],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
+        )
+    )
+
+# if configured, estimate fst from calls (will also do pi and dxy at same time)
+if config["pixy"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{{dataset}}/analyses/pixy/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}/pixy_fst.txt",
+            dp=[""],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
+        )
+    )
+
+
+# if configured, estimate mutation burden from calls
+if config["burden"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{{dataset}}/analyses/burden/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}.varimpacts.tsv",
+            dp=[""],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
+        )
+    )
+
+# if configured, estimate runs of homozygosity from calls
+if config["bcftools_roh"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{{dataset}}/plots/inbreeding/{{dataset}}.{{ref}}_all{dp}_{{sites}}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{{trans}}.fmiss{{miss}}.bcftools.froh_bins.svg",
+            dp=[""],
+            mindp=[5, 6],
+            call=["jointcall"],
+            ablow=[0.21],
+            abhi=[0.79],
+        )
+    )
+
+# if configured, estimate GONE demographic histories from calls
+if config["gone_input_bcf"] & config["GONE_input_params"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{dataset}/analyses/gone/STATUS_{dataset}.{ref}_populations",
+            ref=config["reference"]["name"],
+            dataset=config["dataset"],
+        ),
+    )
+
+
+rule all:
+    default_target: True
+    input:
+        rules.popglen_all.input,
+        expand(
+            all_outputs,
+            sample=angsd.samples.index,
+            ref=config["reference"]["name"],
+            dataset=config["dataset"],
+            sites=angsd.filters,
+            trans=config["bcf_trans"],
+            miss=config["bcf_missing"],
+        ),
