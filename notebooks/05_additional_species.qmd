@@ -1,9 +1,13 @@
 ---
-title: "Supplemental Polyommatini species"
+title: "Additional Polyommatini species"
 format:
   html:
-    code-fold: true
+    toc: true
 ---
+
+This notebook contains the code used to make table and figure relating to the
+conservation focused genetic indicators for genetic erosion in Sweden, estimated
+for the focal species and single samples of 5 more.
 
 ```{r}
 #| label: load-packages
@@ -20,18 +24,20 @@ main_species_m <- c("0.3", "0.3", "0.3")
 main_genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 
 species_f <- c(
-  "aagestis-vg", "aoptilete-vg", #"palcon",
+  "aagestis-vg", "aoptilete-vg",
   "cminimus-vg", "pargyrognomon-vg", "sorion-vg"
 )
 
 species <- c(
-  "aagestis", "aoptilete", #"palcon",
+  "aagestis", "aoptilete",
   "cminimus", "pargyrognomon", "sorion"
 )
 genomes <- c(
-  "ilAriAges2.1", "ilAgrOpti3.hap1.1", # "ilCelArgi3.2",
+  "ilAriAges2.1", "ilAgrOpti3.hap1.1",
   "ilCupMini1.1", "ilPleArgu1.3-pargyrognomon", "ilScoOrio1.hap1.1"
 )
+# accidentally set these species to missingness 0.4 instead of 0.3, but since
+# they are only 2 samples, it is the same as no missingess, so left as is
 species_m <- c(
   "0.4", "0.4", "0.4", "0.4", "0.4"
 )
@@ -46,10 +52,10 @@ differences, which we can't really check with single samples per time period, we
 use this same calculation as it is a useful visualization.
 
 ```{r}
-#| label: main-species-het
+#| label: per-species-het-retain
 
-# As the main species have specific considerations (i.e. multiple sampling
-# areas), they'll be processed separately first.
+# Calculate per species heterozygosity retention pairwise between all historical
+# and modern individual pairs in each species and report a median and range
 
 relhet_all <- c()
 
@@ -141,6 +147,7 @@ relhet_all <- c()
             "historical", "modern", "histhz", "histyear", "modhz",
             "modyear"
           )
+          # below is the main estimate of heterozygosity retention per year
           combos$histyear <- as.numeric(combos$histyear)
           combos$modyear <- as.numeric(combos$modyear)
           combos$het_retained <- (combos$modhz / combos$histhz)
@@ -207,27 +214,25 @@ assemble the results into a figure.
 
 species_names <- c(
   "Aricia agestis", "Agriades optilete", "Cupido minimus",
-  #"Celastrina argiolus",
   "Cyaniris semiargus",
-  #"Phengaris alcon*", "Polyommatus amandus*",
   "Plebejus argus",
   "Plebejus argyrognomon*", "Polyommatus icarus", "Scolitantides orion*"
 )
 
+# species conservation statuses in order of species names
 cons_status <- c(
   "(LC)", "(LC)", "(NT)",
-  # "(LC)",
   "(LC)",
-  # "(EN)", "(LC)",
   "(LC)",
-  "(CR)", "(LC)", "(EN)"
+  "(VU)", "(LC)", "(EN)"
 )
 
 full_name <- paste0(species_names, " ", cons_status)
 
 spec_cons <- data.frame(t(rbind(species_names, cons_status, full_name)))
+# order by conservation status
 spec_cons$cons_status <- factor(spec_cons$cons_status,
-  levels = c("(LC)", "(NT)", "(EN)", "(CR)")
+  levels = c("(LC)", "(NT)", "(VU)", "(EN)")
 )
 
 relhet_all$species <- factor(relhet_all$species,
@@ -283,6 +288,6 @@ ggplot(
       legend.position = "none"
     )
 
-ggsave("../figures/fig-specdiv.png", dpi = 600, create.dir = TRUE)
-ggsave("../figures/fig-specdiv.svg", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure4.png", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure4.svg", dpi = 600, create.dir = TRUE)
 ```

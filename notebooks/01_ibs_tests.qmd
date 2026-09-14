@@ -1,8 +1,7 @@
 ---
 title: "IBS aligner testing"
 format:
-  html:
-    code-fold: true
+  html: default
 ---
 
 ```{r}
@@ -22,6 +21,10 @@ genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 ```
 
 ## Investigating reference bias with different aligners
+
+Plot comparisons of reference bias for historical and modern samples when
+aligned to the linear reference with bwa mem/aln and when aligned to a variation
+graph augmented with called modern variants with vg.
 
 ```{r}
 #| label: ibs-vg-bwa

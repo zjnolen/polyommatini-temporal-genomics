@@ -1,7 +1,15 @@
 from snakemake.utils import min_version
 
-
 min_version("7.32.0")
+
+"""
+The main Snakefile to run the analyses in this manuscript. It is run after you
+have constructed the variation graph. It maps the reads to the graph, then
+runs site level filtering and genotype likelihood analyses (PCA, admix in this
+manuscript, but more can be enabled in the configs) through PopGLen and genotype
+call analyses (heterozygosity, pi, fst, mutation burden, runs of homozygosity,
+GONE demographic histories).
+"""
 
 
 module angsd:
@@ -41,8 +49,12 @@ wildcard_constraints:
     mindp="[1-9][0-9]*",
 
 
+# generate a list of all outputs to target in addition to any PopGLen outputs
+# enabled in the config.
+
 all_outputs = []
 
+# if configured, estimate heterozygosity from calls
 if config["call_heterozygosity"]:
     all_outputs.extend(
         expand(
@@ -55,7 +67,7 @@ if config["call_heterozygosity"]:
         )
     )
 
-
+# if configured, estimate fst from calls (will also do pi and dxy at same time)
 if config["pixy"]:
     all_outputs.extend(
         expand(
@@ -68,6 +80,8 @@ if config["pixy"]:
         )
     )
 
+
+# if configured, estimate mutation burden from calls
 if config["burden"]:
     all_outputs.extend(
         expand(
@@ -80,6 +94,7 @@ if config["burden"]:
         )
     )
 
+# if configured, estimate runs of homozygosity from calls
 if config["bcftools_roh"]:
     all_outputs.extend(
         expand(
@@ -92,8 +107,19 @@ if config["bcftools_roh"]:
         )
     )
 
+# if configured, estimate GONE demographic histories from calls
+if config["gone_input_bcf"] & config["GONE_input_params"]:
+    all_outputs.extend(
+        expand(
+            "results/datasets/{dataset}/analyses/gone/STATUS_{dataset}.{ref}_populations",
+            ref=config["reference"]["name"],
+            dataset=config["dataset"],
+        ),
+    )
+
 
 rule all:
+    default_target: True
     input:
         rules.popglen_all.input,
         expand(
@@ -105,4 +131,3 @@ rule all:
             trans=config["bcf_trans"],
             miss=config["bcf_missing"],
         ),
-    default_target: True

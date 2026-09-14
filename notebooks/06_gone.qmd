@@ -1,9 +1,11 @@
 ---
 title: "GONE effective population sizes"
 format:
-  html:
-    code-fold: true
+  html: default
 ---
+
+This notebook contains the code used to plot the GONE demographic histories per
+population.
 
 ```{r}
 #| label: fig-gone
@@ -25,6 +27,7 @@ pops[["picarus"]] <- c("ESkane2020", "Oland2020", "WSkane2020")
 pops[["pargus"]] <- c("ESkane2022", "NSmaland2021", "Oland2021", "SWSkane2021")
 pops[["csemiargus"]] <- c("ESkane2021", "NSmaland2021", "SESkane2022", "WSkane2021")
 
+# read in GONE results
 nes <- c()
 
 for (i in c(1:length(species))) {
@@ -78,10 +81,13 @@ nes$region <- factor(
 
 nes$year <- nes$Generation
 
+# P. icarus has two gens per year, so adjust for that
 nes[nes$species == "Po. icarus", ]$year <- nes[nes$species == "Po. icarus", ]$Generation * 2
 
-nofirst <- nes[nes$Generation >= 5, ] %>%
-  mutate(label = if_else(Generation == 50, as.character(region), NA_character_)) %>%
+# plot without including first four generations, which often contain an artifact
+# that causes sudden size drops
+nofirst <- nes[(nes$Generation >= 5 & nes$species != "Po. icarus") | (nes$species == "Po. icarus" & nes$Generation >= 10), ] %>%
+  mutate(label = if_else(Generation == 60, as.character(region), NA_character_)) %>%
   ggplot(aes(x = Generation, y = Geometric_mean, color = region)) +
     geom_line() +
     facet_grid(cols = vars(species)) +
@@ -103,8 +109,9 @@ nofirst <- nes[nes$Generation >= 5, ] %>%
       strip.text.x = element_text(face = "italic")
     )
 
+# Same plot, but this time including those first 4 gens to compare
 first <- nes %>%
-  mutate(label = if_else(Generation == 50, as.character(region), NA_character_)) %>%
+  mutate(label = if_else(Generation == 60, as.character(region), NA_character_)) %>%
   ggplot(aes(x = Generation, y = Geometric_mean, color = region)) +
     geom_line() +
     facet_grid(cols = vars(species)) +
@@ -126,6 +133,7 @@ first <- nes %>%
       strip.text.x = element_text(face = "italic")
     )
 
+# plot both versions without and with first 4 gens for Figure S5
 plot_grid(
   nofirst,
   first,

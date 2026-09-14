@@ -1,0 +1,76 @@
+from snakemake.utils import min_version
+
+"""
+This is the snakefile just for constructing the variation graph. It goes first
+pretty much. It'll map the modern samples with BWA, call variants, then
+construct a graph from the reference and the variants. Then, the main workflow
+can be run and the modern and historical samples will both use this as a
+reference. Use by passing the `--snakefile workflow/Snakefile_vg-construct`
+option to Snakemake.
+"""
+
+min_version("7.32.0")
+
+
+module angsd:
+    snakefile:
+        github(
+            "zjnolen/PopGLen",
+            path="workflow/Snakefile",
+            tag="6605810fb53b24e289ac0f29b216aecfc589aa96",
+        )
+    config:
+        config
+
+
+use rule * from angsd exclude all
+
+
+use rule all from angsd as popglen_all
+
+
+include: "rules/call_genotypes.smk"
+include: "rules/vg-construct.smk"
+
+
+wildcard_constraints:
+    ref=config["reference"]["name"],
+    dp=".{0}|.dp[1-9][0-9]*",
+    population="|".join(
+        ["all"]
+        + ["all_excl_pca-admix"]
+        + [i for i in angsd.samples.index.tolist()]
+        + [i for i in angsd.samples.population.values.tolist()]
+        + [i for i in angsd.samples.depth.values.tolist()]
+    ),
+    mindp="[1-9][0-9]*",
+
+
+if len(angsd.samples.index.tolist()) > 0:
+
+    rule all:
+        default_target: True
+        input:
+            rules.popglen_all.input,
+            expand(
+                [
+                    "results/ref/{ref}/{ref}.modvars.vg",
+                    "results/ref/{ref}/{ref}.modvars.xg",
+                    "results/ref/{ref}/{ref}.modvars.gcsa",
+                ],
+                ref=config["reference"]["name"],
+            ),
+
+else:
+
+    rule all:
+        default_target: True
+        input:
+            expand(
+                [
+                    "results/ref/{ref}/{ref}.modvars.vg",
+                    "results/ref/{ref}/{ref}.modvars.xg",
+                    "results/ref/{ref}/{ref}.modvars.gcsa",
+                ],
+                ref=config["reference"]["name"],
+            ),

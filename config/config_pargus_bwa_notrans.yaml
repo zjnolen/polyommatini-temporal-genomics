@@ -1,6 +1,7 @@
 # Project specific configs (outside PopGLen pipeline)
-GONE_input_params: "../config/GONE_input_params_pargus"
-recrate: "3.03e-8"
+gone_input_bcf: ""
+GONE_input_params: ""
+recrate: "1.515e-8"
 gff: "../resources/gffs/Plebejus_argus-GCA_905404155.1-2021_11-genes.gff3.gz"
 bcf_trans: "notrans"
 bcf_missing: "0.4"

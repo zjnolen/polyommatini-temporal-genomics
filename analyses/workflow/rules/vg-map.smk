@@ -92,11 +92,11 @@ rule vg_map_merged:
         flagstat="results/mapping/mapped/{sample}_{unit}_{lib}.{ref}.vg.merged.bam.flagstat",
     conda:
         "../envs/vg.yaml"
-    params:
-        rg=angsd.get_read_group,
     threads: 64
     resources:
         runtime="1d",
+    params:
+        rg=angsd.get_read_group,
     shell:
         """
         vg map -t {threads} -w 300 -k 15 --log-time \
@@ -130,11 +130,11 @@ rule vg_map_paired:
         flagstat="results/mapping/mapped/{sample}_{unit}_{lib}.{ref}.vg.paired.bam.flagstat",
     conda:
         "../envs/vg.yaml"
-    params:
-        rg=angsd.get_read_group,
     threads: 64
     resources:
         runtime="1d",
+    params:
+        rg=angsd.get_read_group,
     shell:
         """
         vg map -t {threads} --log-time \
@@ -224,15 +224,15 @@ rule dedup_merged_vg:
         bam=temp("results/mapping/dedup/{sample}.{ref}.vg.merged_rmdup.bam"),
         bamfin="results/mapping/bams/{sample}.{ref}.vg.merged.rmdup.bam",
         baifin="results/mapping/bams/{sample}.{ref}.vg.merged.rmdup.bam.bai",
-    conda:
-        "../envs/dedup.yaml"
     shadow:
         "minimal"
+    conda:
+        "../envs/dedup.yaml"
     threads: lambda wildcards, attempt: attempt * 8
-    params:
-        outdir=lambda w, output: os.path.dirname(output.bam),
     resources:
         runtime=lambda wildcards, attempt: attempt * 1440,
+    params:
+        outdir=lambda w, output: os.path.dirname(output.bam),
     shell:
         """
         dedup -i {input.bam} -m -u -o {params.outdir}

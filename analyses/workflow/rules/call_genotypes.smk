@@ -1,118 +1,24 @@
-# rule for calling genotypes per individual (not used in final)
-
-
-rule bcftools_mpileup_call_individual_chunk:
-    """
-    Call genotypes per sample in filtered sites regions. Filter for minimum
-    depth, as well as heterozygous sites with poor allelic balance.
-    """
-    input:
-        alignments="results/datasets/{dataset}/bams/{population}.{ref}{dp}.bam",
-        bai="results/datasets/{dataset}/bams/{population}.{ref}{dp}.bam.bai",
-        ref="results/ref/{ref}/{ref}.fa",
-        index="results/ref/{ref}/{ref}.fa.fai",
-        regions="results/datasets/{dataset}/filters/chunks/{ref}_chunk{chunk}.rf",
-        sites="results/datasets/{dataset}/filters/combined/{dataset}.{ref}_{sites}-filts.bed",
-    output:
-        bcf=temp(
-            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_{population}{dp}_{sites}-filts.filtered_mindp{mindp}_allbal{ablow}-{abhi}.bcf"
-        ),
-        idx=temp(
-            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_{population}{dp}_{sites}-filts.filtered_mindp{mindp}_allbal{ablow}-{abhi}.bcf.csi"
-        ),
-    conda:
-        "../envs/bcftools121.yaml"
-    params:
-        baseq=config["baseQ"],
-        mapq=config["mapQ"],
-    threads: 2
-    resources:
-        runtime="1h",
-    shell:
-        """
-        bcftools mpileup --threads {threads} -f {input.ref} -R {input.regions} \
-            -Ou -T {input.sites} -B --min-MQ {params.mapq} \
-            --min-BQ {params.baseq} -a "FORMAT/AD,FORMAT/DP,INFO/AD" \
-            {input.alignments} | \
-            bcftools call -m -f GQ,GP -Ou | \
-            bcftools filter -g 5 -Ou | \
-            bcftools view -V indels -Ou | \
-            bcftools +setGT -Ou -- -t q -n . -i"FMT/DP<{wildcards.mindp}" | \
-            bcftools +setGT -Ou -- -t q -n . \
-                -i'GT="het" & (FMT/AD[:0]/FMT/DP < {wildcards.ablow} | FMT/AD[:0]/FMT/DP > {wildcards.abhi} | FMT/AD[:1]/FMT/DP < {wildcards.ablow} | FMT/AD[:1]/FMT/DP > {wildcards.abhi})' | \
-            bcftools view -i'GT!="./."' -Ou | \
-            bcftools +fill-tags -Ob -- -t all > {output.bcf}
-        bcftools index -o {output.idx} {output.bcf}
-        """
-
-
-# rule for merging individually called genotypes by time period
-
-
-def bcfs(wildcards):
-    dp = wildcards.dp
-    samples = [
-        sample
-        for sample in angsd.samples.index.tolist()
-        if sample not in config["calling_drop"]
-    ]
-    return {
-        "bcfs": expand(
-            "results/datasets/{{dataset}}/bcfs/chunks/{{chunk}}/{{dataset}}.{{ref}}_{population}{{dp}}_{{sites}}-filts.filtered_mindp{{mindp}}_allbal{{ablow}}-{{abhi}}.bcf",
-            population=samples,
-        ),
-        "idxs": expand(
-            "results/datasets/{{dataset}}/bcfs/chunks/{{chunk}}/{{dataset}}.{{ref}}_{population}{{dp}}_{{sites}}-filts.filtered_mindp{{mindp}}_allbal{{ablow}}-{{abhi}}.bcf.csi",
-            population=samples,
-        ),
-    }
-
-
-rule bcftools_merge_all:
-    """
-    Generate dataset-wide BCF from per sample BCFs. Par down to include
-    monomorphic and biallelic sites and remove transition positions where DNA
-    damage might be present. Sites are not yet filtered for missing data.
-    """
-    input:
-        unpack(bcfs),
-    output:
-        bcf=temp(
-            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-indcall_allbal{ablow}-{abhi}.notrans.bcf"
-        ),
-        idx=temp(
-            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-indcall_allbal{ablow}-{abhi}.notrans.bcf.csi"
-        ),
-    conda:
-        "../envs/bcftools121.yaml"
-    threads: 2
-    resources:
-        runtime="2h",
-    shell:
-        """
-        bcftools merge --force-samples -Ou {input.bcfs} | \
-            bcftools +fill-tags -Ou -- -t all | \
-            bcftools filter -g 5 -Ou | \
-            bcftools view -M2 -V indels -Ov | \
-            awk -F '\t' '!(($4 == "A" && $5 == "G") || ($4 == "G" && $5 == "A") || ($4 == "C" && $5 == "T") || ($4 == "T" && $5 == "C"))' | \
-            bcftools view -Ob > {output.bcf}
-        bcftools index -o {output.idx} {output.bcf}
-        """
-
-
-# rule for joint calling chunks
+"""
+Rules related to genotype calling in this project. These focus on using joint
+calling to try to increase confidence in low depth genotypes, using missingness
+filters independently for sample categories (historical/modern) to ensure that
+missingness is even across treatments, and allelic balance based genotype
+filters to reduce calls from rare mismatches that may be mapping errors.
+Individual level calling is also possible, with rules towards the bottom.
+"""
 
 
 rule bcftools_joint_call_chunk:
     """
-    Calls genotypes jointly across all samples in a species dataset, excluding
-    those that have been dropped from genotype call analyses. Uses bcftools
-    multiallelic caller and groups individuals by sample population for the
-    calling model's HWE assumption. After calling, drop low quality positions
-    (QUAL) and set genotypes with low depth and/or poor allelic balance to
-    missing. Keeps monomorphic positions and biallelic SNPs and remove
-    transitions where DNA damage might be present. Applies no missing data
-    filter, aside from how missingness informs QUAL score.
+    Calls genotypes jointly across all samples in a species dataset for a region
+    of the genome, excluding samples that have been dropped from genotype call
+    analyses. Uses bcftools multiallelic caller and groups individuals by sample
+    population for the calling model's HWE assumption. After calling, drop low
+    quality positions (QUAL) and set genotypes with low depth and/or poor
+    allelic balance to missing. Keeps monomorphic positions and biallelic SNPs
+    and outputs BCFs both with and without transitions where DNA damage might be
+    present. Applies no missing data filter yet, aside from how missingness
+    informs QUAL score.
     """
     input:
         bams=expand(
@@ -174,9 +80,6 @@ rule bcftools_joint_call_chunk:
         """
 
 
-# rule for concatenating chunks
-
-
 rule bcftools_concat_chunks:
     """
     Concatenates BCF chunks into a single BCF with whole genome.
@@ -211,7 +114,7 @@ rule bcftools_concat_chunks:
 
 rule bcftools_biallelic_snps:
     """
-    Filters a variant + invariant site bcf to biallelic snps
+    Filters a variant + invariant site bcf to biallelic snps, no MAF filter.
     """
     input:
         bcf="results/datasets/{dataset}/bcfs/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-{call}_allbal{ablow}-{abhi}.{trans}.bcf",
@@ -344,19 +247,101 @@ rule bcf2vcf:
         """
 
 
-rule bcf_ref_bias:
+# rules for calling genotypes per individual (not used in final manuscript)
+
+
+rule bcftools_mpileup_call_individual_chunk:
     """
-    Calculate reference bias (ref alleles / total alleles) per sample from calls
+    Call genotypes per sample in filtered sites regions. Filter for minimum
+    depth, as well as heterozygous sites with poor allelic balance.
     """
     input:
-        stats="results/datasets/{dataset}/bcfs/{prefix}.bcf.stats",
+        alignments="results/datasets/{dataset}/bams/{population}.{ref}{dp}.bam",
+        bai="results/datasets/{dataset}/bams/{population}.{ref}{dp}.bam.bai",
+        ref="results/ref/{ref}/{ref}.fa",
+        index="results/ref/{ref}/{ref}.fa.fai",
+        regions="results/datasets/{dataset}/filters/chunks/{ref}_chunk{chunk}.rf",
+        sites="results/datasets/{dataset}/filters/combined/{dataset}.{ref}_{sites}-filts.bed",
     output:
-        bias="results/datasets/{dataset}/bcfs/{prefix}.bcf.stats.ref_bias",
-    container:
-        angsd.shell_container
+        bcf=temp(
+            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_{population}{dp}_{sites}-filts.filtered_mindp{mindp}_allbal{ablow}-{abhi}.bcf"
+        ),
+        idx=temp(
+            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_{population}{dp}_{sites}-filts.filtered_mindp{mindp}_allbal{ablow}-{abhi}.bcf.csi"
+        ),
+    conda:
+        "../envs/bcftools121.yaml"
+    threads: 2
+    resources:
+        runtime="1h",
+    params:
+        baseq=config["baseQ"],
+        mapq=config["mapQ"],
     shell:
         """
-        grep PSC {input.stats} | \
-            grep -v "#" | \
-            awk '{{print $3"\t"(2*$4+$6)/(2*($4+$5+$6))}}' > {output.bias}
+        bcftools mpileup --threads {threads} -f {input.ref} -R {input.regions} \
+            -Ou -T {input.sites} -B --min-MQ {params.mapq} \
+            --min-BQ {params.baseq} -a "FORMAT/AD,FORMAT/DP,INFO/AD" \
+            {input.alignments} | \
+            bcftools call -m -f GQ,GP -Ou | \
+            bcftools filter -g 5 -Ou | \
+            bcftools view -V indels -Ou | \
+            bcftools +setGT -Ou -- -t q -n . -i"FMT/DP<{wildcards.mindp}" | \
+            bcftools +setGT -Ou -- -t q -n . \
+                -i'GT="het" & (FMT/AD[:0]/FMT/DP < {wildcards.ablow} | FMT/AD[:0]/FMT/DP > {wildcards.abhi} | FMT/AD[:1]/FMT/DP < {wildcards.ablow} | FMT/AD[:1]/FMT/DP > {wildcards.abhi})' | \
+            bcftools view -i'GT!="./."' -Ou | \
+            bcftools +fill-tags -Ob -- -t all > {output.bcf}
+        bcftools index -o {output.idx} {output.bcf}
+        """
+
+
+# function to get a list of BCFs for a grouping, here the whole dataset.
+def bcfs(wildcards):
+    dp = wildcards.dp
+    samples = [
+        sample
+        for sample in angsd.samples.index.tolist()
+        if sample not in config["calling_drop"]
+    ]
+    return {
+        "bcfs": expand(
+            "results/datasets/{{dataset}}/bcfs/chunks/{{chunk}}/{{dataset}}.{{ref}}_{population}{{dp}}_{{sites}}-filts.filtered_mindp{{mindp}}_allbal{{ablow}}-{{abhi}}.bcf",
+            population=samples,
+        ),
+        "idxs": expand(
+            "results/datasets/{{dataset}}/bcfs/chunks/{{chunk}}/{{dataset}}.{{ref}}_{population}{{dp}}_{{sites}}-filts.filtered_mindp{{mindp}}_allbal{{ablow}}-{{abhi}}.bcf.csi",
+            population=samples,
+        ),
+    }
+
+
+rule bcftools_merge_all:
+    """
+    Generate dataset-wide BCF from per sample BCFs. Par down to include
+    monomorphic and biallelic sites and remove transition positions where DNA
+    damage might be present. Sites are not yet filtered for missing data.
+    """
+    input:
+        unpack(bcfs),
+    output:
+        bcf=temp(
+            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-indcall_allbal{ablow}-{abhi}.notrans.bcf"
+        ),
+        idx=temp(
+            "results/datasets/{dataset}/bcfs/chunks/{chunk}/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-allsites-indcall_allbal{ablow}-{abhi}.notrans.bcf.csi"
+        ),
+    conda:
+        "../envs/bcftools121.yaml"
+    threads: 2
+    resources:
+        runtime="2h",
+    shell:
+        """
+        bcftools merge --force-samples -Ou {input.bcfs} | \
+            bcftools +fill-tags -Ou -- -t all | \
+            bcftools filter -g 5 -Ou | \
+            bcftools view -M2 -V indels -Ov | \
+            awk -F '\t' '!(($4 == "A" && $5 == "G") || ($4 == "G" && $5 == "A") || ($4 == "C" && $5 == "T") || ($4 == "T" && $5 == "C"))' | \
+            bcftools view -Ob > {output.bcf}
+        bcftools index -o {output.idx} {output.bcf}
         """

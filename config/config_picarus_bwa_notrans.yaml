@@ -1,9 +1,10 @@
 # Project specific configs (outside PopGLen pipeline)
-GONE_input_params: "../config/GONE_input_params_picarus"
-recrate: "2.33e-8"
+gone_input_bcf: ""
+GONE_input_params: ""
+recrate: "1.165e-8"
 gff: "../resources/gffs/Polyommatus_icarus-GCA_937595015.1-2022_06-genes.gff3.gz"
 bcf_trans: "notrans"
-bcf_missing: "0.4"
+bcf_missing: "0.3"
 calling_drop: ["MZLULEP1730","MZLULEP1748", "MZLULEP1824", "MZLULEP1868", "MZLULEP1911", "MZLULEP3026", "MZLULEP3133", "MZLULEP3259","MZLULEP3661", "MZLULEP3668", "MZLULEP4316", "MZLULEP4555"]
 call_heterozygosity: true
 pixy: true
@@ -91,7 +92,7 @@ analyses:
 
 #==================== Downsampling Configuration ======================#
 
-subsample_dp: []
+subsample_dp: [8]
 
 subsample_by: "sitefilt"
 redo_depth_filts: false

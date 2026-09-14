@@ -2,8 +2,12 @@
 title: "Population structure"
 format:
   html:
-    code-fold: true
+    toc: true
 ---
+
+This notebook contains the code used to make tables and figures relating to
+population structure analyses. This includes both main text and supplementary
+figures and tables.
 
 ```{r}
 #| label: load-packages
@@ -22,7 +26,13 @@ species <- c("picarus", "pargus", "csemiargus")
 genomes <- c("ilPolIcar1.1", "ilPleArgu1.3", "ilCyaSemi1.1")
 ```
 
-# PCA
+## PCA
+
+Plot the outputs of a principal component analysis for each species together.
+This is used for making panel A of Figure 2 and as written makes the lower panel
+of Figure S4. To generate the upper panel of Figure S4, I ran the same code
+block, but exchanged the path for the covariance matrix to point to the bwa aln
+aligned dataset instead.
 
 ```{r}
 #| label: fig-pca
@@ -44,7 +54,7 @@ for (i in c(1:length(species))) {
     paste0(
       "../analyses/results/datasets/historical-",
       s,
-      "-vg-notrans/analyses/pcanalyses/historical-",
+      "-vg-notrans/analyses/pcangsd/historical-",
       s,
       "-vg-notrans.",
       g,
@@ -94,6 +104,7 @@ for (i in c(1:length(species))) {
     labels = species_regs_names
   )
 
+# make a ggplot for the PCA of each species
   pcas[[s]] <- ggplot(pc, aes(
     x = X1, y = X2, color = region, shape = time,
     fill = region
@@ -122,6 +133,7 @@ for (i in c(1:length(species))) {
     )
 }
 
+# make combined plot of all three species pcas
 pcas <- plot_grid(
   pcas[["picarus"]],
   pcas[["pargus"]],
@@ -130,11 +142,16 @@ pcas <- plot_grid(
 )
 ```
 
-# Admixture
+# Best fit K admixture plot
+
+Plot the outputs of the best fit K for each species in the admixture analyes. If
+no K > 1 converged so K = 1 was selected, plot K = 2 instead as K = 1 is boring
+and uninformative.
 
 ```{r}
 #| label: fig-admixture
 
+# set best fit Ks based on convergence of replicates (Table S8)
 best_fit_ks <- c(1, 1, 5)
 
 regs <- c(
@@ -144,11 +161,17 @@ regs_named <- c(
   "Skåne", "W Skåne", "SW Skåne", "E Skåne", "SE Skåne", "Småland", "Öland"
 )
 
+# this color list is manually arranged to color clusters in a way that aligns
+# with the regional colors in Figure 1. it nees to be rearranged depending on
+# the replicate, even converged ones, as the cluster indices is arbitrary
 colors <- list()
-colors[["picarus"]] <- c("#244F6E", "#fecd03")
-colors[["pargus"]] <- c("#8A2A3B", "#244F6E")
-colors[["csemiargus"]] <- c("#B5B6B7", "#658399", "#A7B8C5", "#8A2A3B", "#244F6E")
+colors[["picarus"]] <- c("#fecd03", "#244F6E")
+colors[["pargus"]] <- c("#244F6E", "#8A2A3B")
+colors[["csemiargus"]] <- c("#658399", "#A7B8C5", "#244F6E", "#8A2A3B", "#B5B6B7")
 
+
+# read in admixture clusters for best fit K of each species and do some metadata
+# joining and cleanup for plotting
 admix <- list()
 
 for (i in c(1:length(species))) {
@@ -262,8 +285,13 @@ admixes <- plot_grid(
 )
 ```
 
+### All K plots
+
 Additionally, generate admix plots for all values of K per species to put in the
-supplementary materials.
+supplementary materials. Does the same as above, but loops over the Ks and
+arranges them into a stack for Figure S6. At the same time, it generates
+correlation of residuals plots using the `plotCorRes` function in the
+`visFuns.R` script included in evalAdmix which gets sourced in this block.
 
 ```{r}
 #| label: suppfig-admix
@@ -405,11 +433,11 @@ for (i in c(1:length(species))) {
         paste0(
           "../analyses/results/datasets/historical-",
           s,
-          "-notrans/analyses/ngsadmix/historical-",
+          "-vg-notrans/analyses/ngsadmix/historical-",
           s,
-          "-notrans.",
+          "-vg-notrans.",
           g,
-          "_all_excl_pca-admix_allsites-filts_K",
+          "_all_excl_pca-admix.dp8_allsites-filts_K",
           k,
           ".corres"
         )
@@ -461,7 +489,7 @@ for (i in c(1:length(species))) {
 }
 ```
 
-## Combined figure
+## Combined PCA + Admixture plot (Figure 2)
 
 ```{r}
 #| label: fig-structure
@@ -478,6 +506,6 @@ plot_grid(
   scale = c(1, 0.99)
 ) + bgcolor("white")
 
-ggsave("../figures/fig-structure.png", dpi = 600, create.dir = TRUE)
-ggsave("../figures/fig-structure.svg", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure2.png", dpi = 600, create.dir = TRUE)
+ggsave("../figures/figure2.svg", dpi = 600, create.dir = TRUE)
 ```

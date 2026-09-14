@@ -1,3 +1,10 @@
+"""
+Rules for estimating runs of homozygosity using bcftools. Takes the all sample,
+filtered VCFs as input, but estimates ROH per individual by setting an assumed
+default allele frequency and ignoring homozygous reference positions.
+"""
+
+
 rule bcftools_roh:
     """
     Estimate runs of homozygosity from called genotypes using bcftools.
@@ -10,11 +17,11 @@ rule bcftools_roh:
         regs="results/datasets/{dataset}/analyses/roh/bcftools/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.regs.roh",
     log:
         "logs/{dataset}/bcftools/roh/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.log",
+    wildcard_constraints:
+        miss=config["bcf_missing"],
     conda:
         "../envs/bcftools121.yaml"
     threads: lambda wildcards, attempt: attempt
-    wildcard_constraints:
-        miss=config["bcf_missing"],
     params:
         recrate=config["recrate"],
     shell:
@@ -58,10 +65,10 @@ rule bcftools_roh_plot:
         froh="results/datasets/{dataset}/plots/inbreeding/{dataset}.{ref}_all{dp}_{sites}-filts.filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}.bcftools.ind_froh.tsv",
     log:
         "logs/{dataset}/bcftools/{dataset}.{ref}_all{dp}_{sites}-filts_filtered_mindp{mindp}-biallelic-{call}_allbal{ablow}-{abhi}.{trans}.fmiss{miss}_plot.log",
-    conda:
-        "../envs/r.yaml"
     wildcard_constraints:
         miss=config["bcf_missing"],
+    conda:
+        "../envs/r.yaml"
     params:
         bins=config["params"]["ngsf-hmm"]["roh_bins"],
         minroh=config["params"]["ngsf-hmm"]["min_roh_length"],

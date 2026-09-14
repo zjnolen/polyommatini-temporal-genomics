@@ -16,7 +16,6 @@ sync.err
 generode*
 
 # Ignore only for now until determining what needs to be included
-index.qmd
 references.bib
 figures
 tables
@@ -29,3 +28,4 @@ _freeze
 _manuscript
 custom-reference-doc.docx
 sims
+**/*.quarto_ipynb
